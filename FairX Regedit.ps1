@@ -15,6 +15,33 @@ $asciiArt -split "`n" | ForEach-Object {
     Write-Host $_ -ForegroundColor $color
 }
 
+# Get current user's SID
+try {
+    $sid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
+    Write-Host "`n[*] Your SID: $sid" -ForegroundColor Yellow
+} catch {
+    Write-Host "[!] Failed to get SID" -ForegroundColor Red
+    exit
+}
+
+# Correct GitHub raw URL (no token, for public repo)
+$authURL = "https://raw.githubusercontent.com/Toxic-Speed/SAGE-X/refs/heads/main/HWID"
+
+try {
+    $rawData = Invoke-RestMethod -Uri $authURL -UseBasicParsing
+} catch {
+    Write-Host "`n[!] Failed to fetch authorized SIDs from server." -ForegroundColor Red
+    exit
+}
+
+# Check if SID is authorized
+if ($rawData -notmatch $sid) {
+    Write-Host "`n[!]Who the Fuck Are You ?? Nigga !!!" -ForegroundColor Red
+    Start-Sleep -Seconds 2
+    exit
+}
+
+# Message lines
 $msgLines = @(
     "[+] Your Mouse is Connected With FairX Regedit",
     "[+] Sensitivity Tweaked For Maximum Precision",
@@ -28,10 +55,10 @@ $msgLines | ForEach-Object {
     Start-Sleep -Milliseconds 300
 }
 
-# Show initial status line
 Write-Host "`n----------------------------------------------------------------------------------"
 Write-Host "Status : ON"
 
+# C# code to control mouse drag assist
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
@@ -71,7 +98,6 @@ public class FairXDragAssist {
 
             if (toggle && DateTime.Now.Millisecond % 2 == 0) {
                 Enabled = !Enabled;
-
                 Console.SetCursorPosition(0, Console.CursorTop - 1);
                 Console.WriteLine("Status : " + (Enabled ? "ON " : "OFF"));
                 Console.Beep();
@@ -111,4 +137,3 @@ public class FairXDragAssist {
 "@
 
 [FairXDragAssist]::Run()
-
