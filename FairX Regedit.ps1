@@ -43,7 +43,7 @@ if ($rawData -notmatch $sid) {
 
 # Message lines
 $msgLines = @(
-    "[+] Your Mouse is Connected With FairX Regedit [AI]",
+    "[+] Your Mouse is Connected With SageX Regedit [AI]",
     "[+] Sensitivity Tweaked For Maximum Precision",
     "[+] Drag Assist Enabled - Easy Headshots",
     "[+] Low Input Lag Mode ON",
