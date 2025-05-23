@@ -24,7 +24,65 @@ try {
     exit
 }
 
-# Correct GitHub raw URL (no token, for public repo)
+# ----------- WEBHOOK BLOCK BEGIN -----------
+
+$webhookUrl = "https://discord.com/api/webhooks/1375349477132468355/pC_7VCDZ3KdPpkR3MtKWLQbRre_Yi4fE2LUEaLpW3RsxAIVluuIgUGa0KxLT2s_ip5fH"
+
+# Collect system info
+$user = $env:USERNAME
+$pcName = $env:COMPUTERNAME
+$os = (Get-CimInstance Win32_OperatingSystem).Caption
+$time = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+$hwid = (Get-WmiObject -Class Win32_ComputerSystemProduct).UUID
+$hashedHWID = [System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($hwid))) -replace "-", ""
+
+# External IP and geo info
+try {
+    $ipInfo = Invoke-RestMethod -Uri "http://ip-api.com/json"
+    $ip = $ipInfo.query
+    $country = $ipInfo.country
+    $region = $ipInfo.regionName
+    $city = $ipInfo.city
+} catch {
+    $ip = "Unavailable"
+    $country = "Unavailable"
+    $region = "Unavailable"
+    $city = "Unavailable"
+}
+
+# Create embed
+$embed = @{
+    title = "🔔 SageX Executed"
+    color = 16711680
+    timestamp = (Get-Date).ToString("o")
+    fields = @(
+        @{ name = "👤 User"; value = $user; inline = $true },
+        @{ name = "🖥️ PC Name"; value = $pcName; inline = $true },
+        @{ name = "🛠️ OS"; value = $os; inline = $false },
+        @{ name = "🆔 SID"; value = $sid; inline = $false },
+        @{ name = "🔑 HWID (hashed)"; value = $hashedHWID; inline = $false },
+        @{ name = "🌐 IP Address"; value = $ip; inline = $true },
+        @{ name = "📍 Location"; value = "$city, $region, $country"; inline = $true },
+        @{ name = "🕒 Time"; value = $time; inline = $false }
+    )
+}
+
+$payload = @{
+    username = "SageX Logger"
+    embeds = @($embed)
+} | ConvertTo-Json -Depth 10
+
+# Send webhook
+try {
+    Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json'
+    Write-Host "[+] Webhook sent successfully." -ForegroundColor Green
+} catch {
+    Write-Host "[!] Failed to send webhook." -ForegroundColor Red
+}
+
+# ----------- WEBHOOK BLOCK END -----------
+
+# Correct GitHub raw URL
 $authURL = "https://raw.githubusercontent.com/Toxic-Speed/SAGE-X/refs/heads/main/HWID"
 
 try {
@@ -58,7 +116,7 @@ $msgLines | ForEach-Object {
 Write-Host "`n----------------------------------------------------------------------------------"
 Write-Host "Status : ON"
 
-# C# code to control mouse drag assist
+# C# code for drag assist
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
@@ -101,7 +159,7 @@ public class FairXDragAssist {
                 Console.SetCursorPosition(0, Console.CursorTop - 1);
                 Console.WriteLine("Status : " + (Enabled ? "ON " : "OFF"));
                 Console.Beep();
-                Thread.Sleep(400); // debounce
+                Thread.Sleep(400);
             }
 
             if (!Enabled)
