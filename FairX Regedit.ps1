@@ -104,7 +104,7 @@ $msgLines = @(
     "[+] Drag Assist Enabled - Easy Headshots",
     "[+] Low Input Lag Mode ON",
     "[+] Hold LMB for Auto Drag Support",
-    "[*] Press F8 to Toggle ON/OFF"
+    "[+] Press F8 to Toggle ON/OFF"
 )
 $msgLines | ForEach-Object {
     Write-Host $_ -ForegroundColor Red
