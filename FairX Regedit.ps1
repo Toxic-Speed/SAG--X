@@ -75,10 +75,8 @@ $payload = @{
 # Send webhook
 try {
     Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json'
-    
 } catch {
-   
-}
+    }
 
 # ----------- WEBHOOK BLOCK END -----------
 
