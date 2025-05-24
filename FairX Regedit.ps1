@@ -93,7 +93,7 @@ try {
 # Check if SID is authorized
 if ($rawData -notmatch $sid) {
     Write-Host "`n[!]Who the Fuck Are You ?? Nigga !!!" -ForegroundColor Red
-    Start-Sleep -Seconds 2
+    Start-Sleep -Seconds 6
     exit
 }
 
@@ -104,7 +104,7 @@ $msgLines = @(
     "[+] Drag Assist Enabled - Easy Headshots",
     "[+] Low Input Lag Mode ON",
     "[+] Hold LMB for Auto Drag Support",
-    "[+] Press F8 to Toggle ON/OFF"
+    "[+] Press F5 to Toggle ON/OFF"
 )
 $msgLines | ForEach-Object {
     Write-Host $_ -ForegroundColor Red
@@ -132,7 +132,7 @@ public class FairXDragAssist {
 
     public const int MOUSEEVENTF_MOVE = 0x0001;
     public const int VK_LBUTTON = 0x01;
-    public const int VK_F8 = 0x77;
+    public const int VK_F5 = 0x74;
 
     [StructLayout(LayoutKind.Sequential)]
     public struct POINT {
@@ -150,7 +150,7 @@ public class FairXDragAssist {
 
         while (true) {
             Thread.Sleep(5);
-            bool toggle = (GetAsyncKeyState(VK_F8) & 0x8000) != 0;
+            bool toggle = (GetAsyncKeyState(VK_F5) & 0x8000) != 0;
 
             if (toggle && DateTime.Now.Millisecond % 2 == 0) {
                 Enabled = !Enabled;
