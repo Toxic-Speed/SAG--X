@@ -1,1 +1,2 @@
+AUTHORIZED_SIDS:
 
