@@ -30,7 +30,7 @@ $otpValidatedPath = "$env:APPDATA\SageX\otp_validated.ini"
 
 # Function to generate a random OTP
 function Generate-OTP {
-    $chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    $chars = "123456789"
     $otp = ""
     1..6 | ForEach-Object {
         $otp += $chars[(Get-Random -Maximum $chars.Length)]
