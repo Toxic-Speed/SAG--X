@@ -80,132 +80,133 @@ try {
 # ----------- WEBHOOK BLOCK END -----------
 
 # ----------- OTP VERIFICATION BEGIN -----------
-# OTP System Configuration
 $otpStoragePath = "$env:APPDATA\SageX\otp_config.ini"
-$otpValidatedPath = "$env:APPDATA\SageX\otp_validated.ini"
+$otpDatabase = "$PSScriptRoot\database.txt"  # Can be changed to a preferred path
 
-# Function to generate a random OTP
 function Generate-OTP {
-    $chars = "123456789"
-    $otp = ""
-    1..6 | ForEach-Object {
-        $otp += $chars[(Get-Random -Maximum $chars.Length)]
-    }
-    return $otp
+    $chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    -join (1..8 | ForEach-Object { $chars | Get-Random -Count 1 })
 }
 
-# Function to validate OTP
-function Validate-OTP {
-    param([string]$inputOTP)
-    
-    if (Test-Path $otpStoragePath) {
-        $storedOTP = Get-Content $otpStoragePath
-        if ($inputOTP -eq $storedOTP) {
-            $true | Out-File $otpValidatedPath
-            Remove-Item $otpStoragePath -Force
-            return $true
+function Save-OTP {
+    param ($sid, $otp)
+    if (-not (Test-Path $otpDatabase)) {
+        New-Item -ItemType File -Path $otpDatabase -Force | Out-Null
+    }
+    Add-Content -Path $otpDatabase -Value "$sid=$otp"
+}
+
+function Get-OTP {
+    param ($sid)
+    if (-not (Test-Path $otpDatabase)) { return $null }
+    $lines = Get-Content $otpDatabase
+    foreach ($line in $lines) {
+        if ($line -match "^$sid=(.+)$") {
+            return $matches[1]
         }
+    }
+    return $null
+}
+
+function Remove-OTP {
+    param ($sid)
+    if (-not (Test-Path $otpDatabase)) { return }
+    $lines = Get-Content $otpDatabase
+    $filtered = $lines | Where-Object { $_ -notmatch "^$sid=" }
+    Set-Content -Path $otpDatabase -Value $filtered
+}
+
+function Validate-OTP {
+    param ($inputOTP, $sid)
+    $storedOTP = Get-OTP -sid $sid
+    if ($inputOTP -eq $storedOTP) {
+        Remove-OTP -sid $sid
+        return $true
     }
     return $false
 }
 
-# Check if OTP has already been validated
-if (Test-Path $otpValidatedPath) {
-    # OTP already validated, continue with normal execution
+if (Get-OTP -sid $sid) {
+    # OTP already generated, validate it
+    Write-Host "`n[!] OTP Verification Required" -ForegroundColor Red
+    Write-Host "[*] Please enter the 8-character OTP sent to your Discord" -ForegroundColor Yellow
+    $attempts = 3
+
+    while ($attempts -gt 0) {
+        $userOTP = Read-Host "Enter OTP (Attempts left: $attempts)"
+        if (Validate-OTP -inputOTP $userOTP -sid $sid) {
+            Write-Host "[+] OTP Verified Successfully!" -ForegroundColor Green
+            Start-Sleep -Seconds 2
+            Clear-Host
+            break
+        } else {
+            $attempts--
+            Write-Host "[!] Invalid OTP. Try again." -ForegroundColor Red
+        }
+        if ($attempts -eq 0) {
+            Write-Host "[!] Maximum attempts reached. Exiting..." -ForegroundColor Red
+            exit
+        }
+    }
 } else {
-    # OTP verification needed
-    if (Test-Path $otpStoragePath) {
-        # OTP already generated but not validated
-        $storedOTP = Get-Content $otpStoragePath
-        Write-Host "`n[!] OTP Verification Required" -ForegroundColor Red
-        Write-Host "[*] Please enter the 6-digit OTP sent to your Discord" -ForegroundColor Yellow
-        $attempts = 3
-        
-        while ($attempts -gt 0) {
-            $userOTP = Read-Host "Enter OTP (Attempts left: $attempts)"
-            if (Validate-OTP -inputOTP $userOTP) {
-                Write-Host "[+] OTP Verified Successfully!" -ForegroundColor Green
-                Start-Sleep -Seconds 2
-                Clear-Host
-                break
-            } else {
-                $attempts--
-                if ($attempts -eq 0) {
-                    Write-Host "[!] Maximum attempts reached. Exiting..." -ForegroundColor Red
-                    Start-Sleep -Seconds 3
-                    exit
-                }
-                Write-Host "[!] Invalid OTP. Try again." -ForegroundColor Red
-            }
+    # Generate new OTP
+    $otp = Generate-OTP
+    Save-OTP -sid $sid -otp $otp
+
+    $otpEmbed = @{
+        title = "🔑 SageX OTP Verification"
+        description = "A new OTP has been generated for verification"
+        color = 65280
+        fields = @(
+            @{ name = "User"; value = $user; inline = $true },
+            @{ name = "HWID"; value = $hashedHWID; inline = $true },
+            @{ name = "OTP Code"; value = "||$otp||"; inline = $false },
+            @{ name = "Valid For"; value = "5 minutes (manual deletion required)" }
+        )
+        timestamp = (Get-Date).ToString("o")
+    }
+
+    $otpPayload = @{
+        username = "SageX OTP System"
+        embeds = @($otpEmbed)
+    } | ConvertTo-Json -Depth 10
+
+    try {
+        Invoke-RestMethod -Uri "https://discordapp.com/api/webhooks/1380951069718479070/Rtiw-SnS-vWs35FwERyqYm9Y-ZEOW7_UMHVTjnc6aZMauK1WifQ2ZqZMchJFfjTprblA" -Method Post -Body $otpPayload -ContentType 'application/json'
+    } catch {
+        Write-Host "[!] Failed to send OTP to Discord" -ForegroundColor Red
+    }
+
+    Write-Host "`n[!] FIRST RUN DETECTED - OTP VERIFICATION REQUIRED" -ForegroundColor Red
+    Write-Host "[*] An OTP has been sent to the administrator Discord" -ForegroundColor Yellow
+    Write-Host "[*] Please contact the provider to get your verification code`n" -ForegroundColor Yellow
+
+    $attempts = 3
+    $otpExpiry = (Get-Date).AddMinutes(5)
+
+    while ($attempts -gt 0 -and (Get-Date) -lt $otpExpiry) {
+        $timeLeft = ($otpExpiry - (Get-Date)).ToString("mm\:ss")
+        $userOTP = Read-Host "Enter OTP (Attempts left: $attempts | Expires in: $timeLeft)"
+
+        if (Validate-OTP -inputOTP $userOTP -sid $sid) {
+            Write-Host "[+] OTP Verified Successfully!" -ForegroundColor Green
+            Start-Sleep -Seconds 2
+            Clear-Host
+            break
+        } else {
+            $attempts--
+            Write-Host "[!] Invalid OTP. Try again." -ForegroundColor Red
         }
-    } else {
-        # First run - generate and send OTP
-        if (-not (Test-Path (Split-Path $otpStoragePath))) {
-            New-Item -ItemType Directory -Path (Split-Path $otpStoragePath) -Force | Out-Null
-        }
-        
-        $newOTP = Generate-OTP
-        $newOTP | Out-File $otpStoragePath
-        
-        # Send OTP to Discord via webhook
-        $otpEmbed = @{
-            title = "🔑 SageX OTP Verification"
-            description = "A new OTP has been generated for verification"
-            color = 65280
-            fields = @(
-                @{ name = "User"; value = $user; inline = $true },
-                @{ name = "HWID"; value = $hashedHWID; inline = $true },
-                @{ name = "OTP Code"; value = "||$newOTP||"; inline = $false },
-                @{ name = "Valid For"; value = "5 minutes"; inline = $false }
-            )
-            timestamp = (Get-Date).ToString("o")
-        }
-        
-        $otpPayload = @{
-            username = "SageX OTP System"
-            embeds = @($otpEmbed)
-        } | ConvertTo-Json -Depth 10
-        
-        try {
-            Invoke-RestMethod -Uri "https://discordapp.com/api/webhooks/1380951069718479070/Rtiw-SnS-vWs35FwERyqYm9Y-ZEOW7_UMHVTjnc6aZMauK1WifQ2ZqZMchJFfjTprblA" -Method Post -Body $otpPayload -ContentType 'application/json'
-        } catch {
-            Write-Host "[!] Failed to send OTP to Discord" -ForegroundColor Red
-        }
-        
-        Write-Host "`n[!] FIRST RUN DETECTED - OTP VERIFICATION REQUIRED" -ForegroundColor Red
-        Write-Host "[*] An OTP has been sent to the administrator Discord" -ForegroundColor Yellow
-        Write-Host "[*] Please contact the provider to get your verification code`n" -ForegroundColor Yellow
-        
-        $attempts = 3
-        $otpExpiry = (Get-Date).AddMinutes(5)
-        
-        while ($attempts -gt 0 -and (Get-Date) -lt $otpExpiry) {
-            $timeLeft = ($otpExpiry - (Get-Date)).ToString("mm\:ss")
-            $userOTP = Read-Host "Enter OTP (Attempts left: $attempts | Expires in: $timeLeft)"
-            
-            if (Validate-OTP -inputOTP $userOTP) {
-                Write-Host "[+] OTP Verified Successfully!" -ForegroundColor Green
-                Start-Sleep -Seconds 2
-                Clear-Host
-                break
-            } else {
-                $attempts--
-                if ($attempts -eq 0 -or (Get-Date) -ge $otpExpiry) {
-                    Write-Host "[!] OTP verification failed. Exiting..." -ForegroundColor Red
-                    Start-Sleep -Seconds 3
-                    exit
-                }
-                Write-Host "[!] Invalid OTP. Try again." -ForegroundColor Red
-            }
-        }
-        
-        # Cleanup if verification failed
-        if (-not (Test-Path $otpValidatedPath)) {
-            Remove-Item $otpStoragePath -Force -ErrorAction SilentlyContinue
+
+        if ($attempts -eq 0 -or (Get-Date) -ge $otpExpiry) {
+            Write-Host "[!] OTP verification failed. Exiting..." -ForegroundColor Red
+            Remove-OTP -sid $sid
             exit
         }
     }
 }
+# ----------- OTP VERIFICATION END -----------
+
 
 # Correct GitHub raw URL
 $authURL = "https://raw.githubusercontent.com/Toxic-Speed/SAGE-X/refs/heads/main/HWID"
