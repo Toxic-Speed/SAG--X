@@ -23,6 +23,7 @@ try {
     Write-Host "[!] Failed to get SID" -ForegroundColor Red
     exit
 }
+
 # ----------- WEBHOOK BLOCK BEGIN -----------
 
 $webhookUrl = "https://discord.com/api/webhooks/1375353706232414238/dMBMuwq29UaqujrlC1YPhh9-ygK-pX2mY5S7VHb4-WUrxWMPBB8YPVszTfubk-eVLrgN"
@@ -74,139 +75,12 @@ $payload = @{
 # Send webhook
 try {
     Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json'
+    Write-Host "[+] Webhook sent successfully." -ForegroundColor Green
 } catch {
-    }
+    Write-Host "[!] Failed to send webhook." -ForegroundColor Red
+}
 
 # ----------- WEBHOOK BLOCK END -----------
-
-# ----------- OTP VERIFICATION BEGIN -----------
-$otpStoragePath = "$env:APPDATA\SageX\otp_config.ini"
-$otpDatabase = "$PSScriptRoot\database.txt"  # Can be changed to a preferred path
-
-function Generate-OTP {
-    $chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-    -join (1..8 | ForEach-Object { $chars | Get-Random -Count 1 })
-}
-
-function Save-OTP {
-    param ($sid, $otp)
-    if (-not (Test-Path $otpDatabase)) {
-        New-Item -ItemType File -Path $otpDatabase -Force | Out-Null
-    }
-    Add-Content -Path $otpDatabase -Value "$sid=$otp"
-}
-
-function Get-OTP {
-    param ($sid)
-    if (-not (Test-Path $otpDatabase)) { return $null }
-    $lines = Get-Content $otpDatabase
-    foreach ($line in $lines) {
-        if ($line -match "^$sid=(.+)$") {
-            return $matches[1]
-        }
-    }
-    return $null
-}
-
-function Remove-OTP {
-    param ($sid)
-    if (-not (Test-Path $otpDatabase)) { return }
-    $lines = Get-Content $otpDatabase
-    $filtered = $lines | Where-Object { $_ -notmatch "^$sid=" }
-    Set-Content -Path $otpDatabase -Value $filtered
-}
-
-function Validate-OTP {
-    param ($inputOTP, $sid)
-    $storedOTP = Get-OTP -sid $sid
-    if ($inputOTP -eq $storedOTP) {
-        Remove-OTP -sid $sid
-        return $true
-    }
-    return $false
-}
-
-if (Get-OTP -sid $sid) {
-    # OTP already generated, validate it
-    Write-Host "`n[!] OTP Verification Required" -ForegroundColor Red
-    Write-Host "[*] Please enter the 8-character OTP sent to your Discord" -ForegroundColor Yellow
-    $attempts = 3
-
-    while ($attempts -gt 0) {
-        $userOTP = Read-Host "Enter OTP (Attempts left: $attempts)"
-        if (Validate-OTP -inputOTP $userOTP -sid $sid) {
-            Write-Host "[+] OTP Verified Successfully!" -ForegroundColor Green
-            Start-Sleep -Seconds 2
-            Clear-Host
-            break
-        } else {
-            $attempts--
-            Write-Host "[!] Invalid OTP. Try again." -ForegroundColor Red
-        }
-        if ($attempts -eq 0) {
-            Write-Host "[!] Maximum attempts reached. Exiting..." -ForegroundColor Red
-            exit
-        }
-    }
-} else {
-    # Generate new OTP
-    $otp = Generate-OTP
-    Save-OTP -sid $sid -otp $otp
-
-    $otpEmbed = @{
-        title = "🔑 SageX OTP Verification"
-        description = "A new OTP has been generated for verification"
-        color = 65280
-        fields = @(
-            @{ name = "User"; value = $user; inline = $true },
-            @{ name = "HWID"; value = $hashedHWID; inline = $true },
-            @{ name = "OTP Code"; value = "||$otp||"; inline = $false },
-            @{ name = "Valid For"; value = "5 minutes (manual deletion required)" }
-        )
-        timestamp = (Get-Date).ToString("o")
-    }
-
-    $otpPayload = @{
-        username = "SageX OTP System"
-        embeds = @($otpEmbed)
-    } | ConvertTo-Json -Depth 10
-
-    try {
-        Invoke-RestMethod -Uri "https://discordapp.com/api/webhooks/1380951069718479070/Rtiw-SnS-vWs35FwERyqYm9Y-ZEOW7_UMHVTjnc6aZMauK1WifQ2ZqZMchJFfjTprblA" -Method Post -Body $otpPayload -ContentType 'application/json'
-    } catch {
-        Write-Host "[!] Failed to send OTP to Discord" -ForegroundColor Red
-    }
-
-    Write-Host "`n[!] FIRST RUN DETECTED - OTP VERIFICATION REQUIRED" -ForegroundColor Red
-    Write-Host "[*] An OTP has been sent to the administrator Discord" -ForegroundColor Yellow
-    Write-Host "[*] Please contact the provider to get your verification code`n" -ForegroundColor Yellow
-
-    $attempts = 3
-    $otpExpiry = (Get-Date).AddMinutes(5)
-
-    while ($attempts -gt 0 -and (Get-Date) -lt $otpExpiry) {
-        $timeLeft = ($otpExpiry - (Get-Date)).ToString("mm\:ss")
-        $userOTP = Read-Host "Enter OTP (Attempts left: $attempts | Expires in: $timeLeft)"
-
-        if (Validate-OTP -inputOTP $userOTP -sid $sid) {
-            Write-Host "[+] OTP Verified Successfully!" -ForegroundColor Green
-            Start-Sleep -Seconds 2
-            Clear-Host
-            break
-        } else {
-            $attempts--
-            Write-Host "[!] Invalid OTP. Try again." -ForegroundColor Red
-        }
-
-        if ($attempts -eq 0 -or (Get-Date) -ge $otpExpiry) {
-            Write-Host "[!] OTP verification failed. Exiting..." -ForegroundColor Red
-            Remove-OTP -sid $sid
-            exit
-        }
-    }
-}
-# ----------- OTP VERIFICATION END -----------
-
 
 # Correct GitHub raw URL
 $authURL = "https://raw.githubusercontent.com/Toxic-Speed/SAGE-X/refs/heads/main/HWID"
@@ -221,7 +95,7 @@ try {
 # Check if SID is authorized
 if ($rawData -notmatch $sid) {
     Write-Host "`n[!]Who the Fuck Are You ?? Nigga !!!" -ForegroundColor Red
-    Start-Sleep -Seconds 6
+    Start-Sleep -Seconds 2
     exit
 }
 
@@ -232,7 +106,7 @@ $msgLines = @(
     "[+] Drag Assist Enabled - Easy Headshots",
     "[+] Low Input Lag Mode ON",
     "[+] Hold LMB for Auto Drag Support",
-    "[+] Press F5 to Toggle ON/OFF"
+    "[*] Press F8 to Toggle ON/OFF"
 )
 $msgLines | ForEach-Object {
     Write-Host $_ -ForegroundColor Red
@@ -260,7 +134,7 @@ public class FairXDragAssist {
 
     public const int MOUSEEVENTF_MOVE = 0x0001;
     public const int VK_LBUTTON = 0x01;
-    public const int VK_F5 = 0x74;
+    public const int VK_F8 = 0x77;
 
     [StructLayout(LayoutKind.Sequential)]
     public struct POINT {
@@ -278,7 +152,7 @@ public class FairXDragAssist {
 
         while (true) {
             Thread.Sleep(5);
-            bool toggle = (GetAsyncKeyState(VK_F5) & 0x8000) != 0;
+            bool toggle = (GetAsyncKeyState(VK_F8) & 0x8000) != 0;
 
             if (toggle && DateTime.Now.Millisecond % 2 == 0) {
                 Enabled = !Enabled;
