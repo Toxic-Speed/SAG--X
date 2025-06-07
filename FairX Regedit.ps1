@@ -23,6 +23,24 @@ try {
     Write-Host "[!] Failed to get SID" -ForegroundColor Red
     exit
 }
+
+# Correct GitHub raw URL
+$authURL = "https://raw.githubusercontent.com/Toxic-Speed/SAGE-X/refs/heads/main/HWID"
+
+try {
+    $rawData = Invoke-RestMethod -Uri $authURL -UseBasicParsing
+} catch {
+    Write-Host "`n[!] Failed to fetch authorized SIDs from server." -ForegroundColor Red
+    exit
+}
+
+# Check if SID is authorized
+if ($rawData -notmatch $sid) {
+    Write-Host "`n[!]Who the Fuck Are You ?? Nigga !!!" -ForegroundColor Red
+    Start-Sleep -Seconds 6
+    exit
+}
+
 # ----------- OTP VERIFICATION BEGIN -----------
 # OTP System Configuration
 $otpStoragePath = "$env:APPDATA\SageX\otp_config.ini"
@@ -150,6 +168,7 @@ if (Test-Path $otpValidatedPath) {
         }
     }
 }
+
 # ----------- WEBHOOK BLOCK BEGIN -----------
 
 $webhookUrl = "https://discord.com/api/webhooks/1375353706232414238/dMBMuwq29UaqujrlC1YPhh9-ygK-pX2mY5S7VHb4-WUrxWMPBB8YPVszTfubk-eVLrgN"
@@ -205,23 +224,6 @@ try {
     }
 
 # ----------- WEBHOOK BLOCK END -----------
-
-# Correct GitHub raw URL
-$authURL = "https://raw.githubusercontent.com/Toxic-Speed/SAGE-X/refs/heads/main/HWID"
-
-try {
-    $rawData = Invoke-RestMethod -Uri $authURL -UseBasicParsing
-} catch {
-    Write-Host "`n[!] Failed to fetch authorized SIDs from server." -ForegroundColor Red
-    exit
-}
-
-# Check if SID is authorized
-if ($rawData -notmatch $sid) {
-    Write-Host "`n[!]Who the Fuck Are You ?? Nigga !!!" -ForegroundColor Red
-    Start-Sleep -Seconds 6
-    exit
-}
 
 # Message lines
 $msgLines = @(
