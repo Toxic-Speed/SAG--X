@@ -81,7 +81,19 @@ function Verify-OTP {
 }
 
 function Initialize-OTPSystem {
-    $LocalStoragePath = "$env:APPDATA\otp.ini"
+    # Create SageX Regedit folder in AppData if it doesn't exist
+    $appDataFolder = "$env:APPDATA\SageX Regedit"
+    if (-not (Test-Path $appDataFolder)) {
+        try {
+            New-Item -ItemType Directory -Path $appDataFolder -Force | Out-Null
+        }
+        catch {
+            Write-Host "[!] Failed to create SageX Regedit folder: $_" -ForegroundColor Red
+            exit
+        }
+    }
+    
+    $LocalStoragePath = "$appDataFolder\otp.ini"
     $RemoteDatabaseURL = "https://raw.githubusercontent.com/Toxic-Speed/SAG--X/main/otp_db.txt"
     $machineFingerprint = Get-MachineFingerprint
     
@@ -253,7 +265,7 @@ $msgLines = @(
     "[+] Drag Assist Enabled - Easy Headshots",
     "[+] Low Input Lag Mode ON",
     "[+] Hold LMB for Auto Drag Support",
-    "[*] Press F8 to Toggle ON/OFF"
+    "[+] Press F8 to Toggle ON/OFF"
 )
 $msgLines | ForEach-Object {
     Write-Host $_ -ForegroundColor Red
