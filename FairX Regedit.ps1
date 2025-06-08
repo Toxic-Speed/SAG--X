@@ -477,11 +477,10 @@ function Show-ControlPanel {
     # SID line
     Write-Host "`n SID: " -NoNewline -ForegroundColor Gray
     Write-Host $sid -ForegroundColor Yellow
-    Write-Host "`n"
 
     #MSG LINE
     $msgLines = @(
-    "[+] Your Mouse is Connected With SageX Regedit [AI]",
+    "`n [+] Your Mouse is Connected With SageX Regedit [AI]",
     "[+] Sensitivity Tweaked For Maximum Precision",
     "[+] Drag Assist Enabled - Easy Headshots",
     "[+] Low Input Lag Mode ON",
@@ -494,8 +493,7 @@ function Show-ControlPanel {
 
     
     # Status line
-    Write-Host "`n"
-    Write-Host " STATUS:   " -NoNewline
+    Write-Host "`n STATUS:   " -NoNewline
     if ($Enabled) { 
         Write-Host "ACTIVE  " -NoNewline -ForegroundColor White
     } else { 
