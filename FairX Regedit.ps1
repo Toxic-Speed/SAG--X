@@ -409,10 +409,14 @@ $asciiArt -split "`n" | ForEach-Object {
 
     # Draw header
     Write-Host "`n" -NoNewline
-    Write-Host " " * ------------- *  -NoNewline
+    Write-Host " " * ------------- *  -NoNewline -ForegroundColor White
     Write-Host " DRAG ASSIST CONTROL PANEL " -NoNewline -ForegroundColor White
-    Write-Host " " * ------------- * 
+    Write-Host " " * ------------- * -ForegroundColor White
     Write-Host "`n"
+
+    # SID line
+    Write-Host "`n SID: " -NoNewline -ForegroundColor Gray
+    Write-Host $sid -ForegroundColor Yellow
     
     # Status line
     Write-Host " STATUS:   " -NoNewline
@@ -460,9 +464,6 @@ $asciiArt -split "`n" | ForEach-Object {
     Write-Host "`n PERFORMANCE:" -ForegroundColor White
     Write-Host (" FPS: " + $Frames.ToString().PadRight(5) + " LATENCY: " + $AverageLatency.ToString("0.00") + "ms") -BackgroundColor Black -ForegroundColor Gray
     
-    # SID line
-    Write-Host "`n SID: " -NoNewline -ForegroundColor Gray
-    Write-Host $sid -ForegroundColor Yellow
     
     # Instructions
     Write-Host "`n CONTROLS:" -ForegroundColor White
