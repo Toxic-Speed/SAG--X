@@ -141,16 +141,22 @@ function Initialize-OTPSystem {
 Initialize-OTPSystem
 Clear-Host
 
-# Simplified ASCII Art for CMD
-Write-Host @"
+# ASCII Art with colors
+$colors = @("Red", "Yellow", "Cyan", "Green", "Magenta", "Blue", "White")
 
+$asciiArt = @'
   _________                     ____  ___ __________                         .___.__  __   
  /   _____/____     ____   ____ \   \/  / \______   \ ____   ____   ____   __| _/|__|/  |_ 
  \_____  \\__  \   / ___\_/ __ \ \     /   |       _// __ \ / ___\_/ __ \ / __ | |  \   __\
  /        \/ __ \_/ /_/  >  ___/ /     \   |    |   \  ___// /_/  >  ___// /_/ | |  ||  |  
 /_______  (____  /\___  / \___  >___/\  \  |____|_  /\___  >___  / \___  >____ | |__||__|  
         \/     \//_____/      \/      \_/         \/     \/_____/      \/     \/             
-"@
+'@
+
+$asciiArt -split "`n" | ForEach-Object {
+    $color = Get-Random -InputObject $colors
+    Write-Host $_ -ForegroundColor $color
+}
 
 # Get SID with error handling
 try {
