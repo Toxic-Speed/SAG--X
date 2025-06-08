@@ -412,11 +412,11 @@ $asciiArt -split "`n" | ForEach-Object {
     Write-Host " " * ------------- *  -NoNewline -ForegroundColor White
     Write-Host " DRAG ASSIST CONTROL PANEL " -NoNewline -ForegroundColor White
     Write-Host " " * ------------- * -ForegroundColor White
-    Write-Host "`n"
 
     # SID line
-    Write-Host "`n SID: " -ForegroundColor Gray
+    Write-Host "`n SID: " -NoNewline -ForegroundColor Gray
     Write-Host $sid -ForegroundColor Yellow
+    Write-Host "`n"
     
     # Status line
     Write-Host " STATUS:   " -NoNewline
