@@ -480,7 +480,7 @@ function Show-ControlPanel {
 
     #MSG LINE
     $msgLines = @(
-    "`n [+] Your Mouse is Connected With SageX Regedit [AI]",
+    "`n[+] Your Mouse is Connected With SageX Regedit [AI]",
     "[+] Sensitivity Tweaked For Maximum Precision",
     "[+] Drag Assist Enabled - Easy Headshots",
     "[+] Low Input Lag Mode ON",
