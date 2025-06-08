@@ -46,7 +46,7 @@ function Verify-OTP {
         $remoteData = Invoke-RestMethod -Uri $DatabaseURL -UseBasicParsing -ErrorAction Stop
         
         # Check for matching entry (format: fingerprint:otp:timestamp)
-        $pattern = "$MachineFingerprint`:$OTP`:\d{4}-\d{2}-\d{2}"
+        $pattern = "$MachineFingerprint`:$OTP`"
         if ($remoteData -match $pattern) {
             return $true
         }
