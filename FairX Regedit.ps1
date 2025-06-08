@@ -258,29 +258,50 @@ if ($rawData -notmatch $sid) {
 }
 
 # ==================== MAIN FUNCTIONALITY ====================
-$msgLines = @(
-    "[+] Your Mouse is Connected With SageX Regedit [AI]",
-    "[+] Sensitivity Tweaked For Maximum Precision",
-    "[+] Drag Assist Enabled - Easy Headshots",
-    "[+] Low Input Lag Mode ON",
-    "[+] Hold LMB for Auto Drag Support",
-    "[+] Press F7 to Toggle ON/OFF"
-)
-$msgLines | ForEach-Object {
-    Write-Host $_ -ForegroundColor Red
-    Start-Sleep -Milliseconds 300
+function Show-Status {
+    param(
+        [bool]$Enabled,
+        [int]$Strength,
+        [bool]$IsHolding,
+        [int]$AssistLevel
+    )
+    
+    $statusColor = if ($Enabled) { "Green" } else { "Red" }
+    $holdColor = if ($IsHolding) { "Cyan" } else { "Gray" }
+    
+    # Clear previous status lines
+    $linesToClear = 8
+    for ($i = 0; $i -lt $linesToClear; $i++) {
+        Write-Host (" " * 80)
+    }
+    
+    # Move cursor up
+    [Console]::SetCursorPosition(0, [Console]::CursorTop - $linesToClear)
+    
+    # Draw strength meter
+    $strengthBar = "[" + ("■" * $Strength) + (" " * (10 - $Strength)) + "]"
+    $assistBar = "[" + ("■" * $AssistLevel) + (" " * (5 - $AssistLevel)) + "]"
+    
+    Write-Host "`n[+] SageX Drag Assist Controller" -ForegroundColor Yellow
+    Write-Host "[+] Status: " -NoNewline
+    Write-Host ($Enabled ? "ACTIVE" : "INACTIVE") -ForegroundColor $statusColor
+    Write-Host "[+] LMB Hold: " -NoNewline
+    Write-Host ($IsHolding ? "DETECTED" : "WAITING") -ForegroundColor $holdColor
+    Write-Host "[+] Strength: $strengthBar $Strength/10" -ForegroundColor Magenta
+    Write-Host "[+] Assist Level: $assistBar $AssistLevel/5" -ForegroundColor Cyan
+    Write-Host "[+] Controls:" -ForegroundColor White
+    Write-Host "    F7: Toggle ON/OFF | F8: Increase Strength | F9: Decrease Strength"
+    Write-Host "    F10: Increase Assist | F11: Decrease Assist"
 }
 
-Write-Host "`n----------------------------------------------------------------------------------"
-Write-Host "Status : ON"
-
-# C# code for drag assist
+# Enhanced C# code for drag assist with visual feedback
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Diagnostics;
 
-public class FairXDragAssist {
+public class SageXDragAssist {
     [DllImport("user32.dll")]
     public static extern bool GetCursorPos(out POINT lpPoint);
 
@@ -293,6 +314,10 @@ public class FairXDragAssist {
     public const int MOUSEEVENTF_MOVE = 0x0001;
     public const int VK_LBUTTON = 0x01;
     public const int VK_F7 = 0x76;
+    public const int VK_F8 = 0x77;
+    public const int VK_F9 = 0x78;
+    public const int VK_F10 = 0x79;
+    public const int VK_F11 = 0x7A;
 
     [StructLayout(LayoutKind.Sequential)]
     public struct POINT {
@@ -301,23 +326,66 @@ public class FairXDragAssist {
     }
 
     public static bool Enabled = true;
+    public static int Strength = 6; // Default strength (1-10)
+    public static int AssistLevel = 3; // Default assist level (1-5)
+    public static bool IsHolding = false;
+    public static bool ShowVisuals = true;
 
     public static void Run() {
         POINT prev;
         GetCursorPos(out prev);
         bool isHolding = false;
         DateTime pressStart = DateTime.MinValue;
+        DateTime lastUpdate = DateTime.Now;
+        int updateCounter = 0;
 
         while (true) {
             Thread.Sleep(5);
+            updateCounter++;
+            
+            // Check for toggle key (F7)
             bool toggle = (GetAsyncKeyState(VK_F7) & 0x8000) != 0;
+            bool increaseStr = (GetAsyncKeyState(VK_F8) & 0x8000) != 0;
+            bool decreaseStr = (GetAsyncKeyState(VK_F9) & 0x8000) != 0;
+            bool increaseAssist = (GetAsyncKeyState(VK_F10) & 0x8000) != 0;
+            bool decreaseAssist = (GetAsyncKeyState(VK_F11) & 0x8000) != 0;
 
+            // Handle key presses with debounce
             if (toggle && DateTime.Now.Millisecond % 2 == 0) {
                 Enabled = !Enabled;
-                Console.SetCursorPosition(0, Console.CursorTop - 1);
-                Console.WriteLine("Status : " + (Enabled ? "ON " : "OFF"));
-                Console.Beep();
-                Thread.Sleep(400);
+                Console.Beep(Enabled ? 800 : 400, 100);
+                Thread.Sleep(200);
+            }
+            
+            if (increaseStr && Strength < 10) {
+                Strength++;
+                Console.Beep(600, 50);
+                Thread.Sleep(200);
+            }
+            
+            if (decreaseStr && Strength > 1) {
+                Strength--;
+                Console.Beep(300, 50);
+                Thread.Sleep(200);
+            }
+            
+            if (increaseAssist && AssistLevel < 5) {
+                AssistLevel++;
+                Console.Beep(700, 50);
+                Thread.Sleep(200);
+            }
+            
+            if (decreaseAssist && AssistLevel > 1) {
+                AssistLevel--;
+                Console.Beep(500, 50);
+                Thread.Sleep(200);
+            }
+
+            // Update visuals every 50 iterations (250ms)
+            if (updateCounter % 50 == 0) {
+                if (ShowVisuals) {
+                    UpdateConsole();
+                }
             }
 
             if (!Enabled)
@@ -329,16 +397,26 @@ public class FairXDragAssist {
                 if (!isHolding) {
                     isHolding = true;
                     pressStart = DateTime.Now;
-                } else if ((DateTime.Now - pressStart).TotalMilliseconds >= 60) {
+                } else if ((DateTime.Now - pressStart).TotalMilliseconds >= 50) {
                     POINT curr;
                     GetCursorPos(out curr);
 
                     int deltaY = curr.Y - prev.Y;
                     int deltaX = curr.X - prev.X;
 
+                    // Apply strength multiplier (0.1 to 1.0)
+                    float strMult = Strength / 10.0f;
+                    
+                    // Apply assist level (more aggressive correction at higher levels)
+                    float assistMult = AssistLevel / 2.0f;
+
                     if (deltaY < -1) {
-                        int correctedX = (int)(deltaX * 0.4);
-                        mouse_event(MOUSEEVENTF_MOVE, -correctedX, -4, 0, 0);
+                        // Calculate correction with both strength and assist level
+                        int correctedX = (int)(deltaX * 0.4 * strMult * assistMult);
+                        int correctedY = (int)(deltaY * 0.3 * strMult * assistMult);
+                        
+                        // Apply the correction
+                        mouse_event(MOUSEEVENTF_MOVE, -correctedX, -correctedY, 0, 0);
                         Thread.Sleep(10);
                     }
 
@@ -347,9 +425,42 @@ public class FairXDragAssist {
             } else {
                 isHolding = false;
             }
+            
+            IsHolding = isHolding;
         }
+    }
+    
+    private static void UpdateConsole() {
+        Console.SetCursorPosition(0, Console.CursorTop - 7);
+        Console.WriteLine("[+] Status: " + (Enabled ? "ACTIVE " : "INACTIVE") + "    ");
+        Console.WriteLine("[+] LMB Hold: " + (IsHolding ? "DETECTED" : "WAITING ") + "    ");
+        Console.WriteLine("[+] Strength: [" + new string('■', Strength) + new string(' ', 10 - Strength) + $"] {Strength}/10    ");
+        Console.WriteLine("[+] Assist Level: [" + new string('■', AssistLevel) + new string(' ', 5 - AssistLevel) + $"] {AssistLevel}/5    ");
+        Console.WriteLine("                                                                                ");
+        Console.WriteLine("                                                                                ");
+        Console.WriteLine("                                                                                ");
     }
 }
 "@
 
-[FairXDragAssist]::Run()
+# Initial status display
+Show-Status -Enabled $true -Strength 6 -IsHolding $false -AssistLevel 3
+
+# Start the drag assist in a separate thread
+$dragAssistThread = [PowerShell]::Create().AddScript({
+    [SageXDragAssist]::Run()
+})
+
+$handle = $dragAssistThread.BeginInvoke()
+
+# Keep the main thread running
+try {
+    while ($true) {
+        Start-Sleep -Seconds 1
+    }
+} finally {
+    if ($handle -ne $null) {
+        $dragAssistThread.EndInvoke($handle)
+        $dragAssistThread.Dispose()
+    }
+}
