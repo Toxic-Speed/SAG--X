@@ -330,25 +330,25 @@ public class SageXDragAssist {
                 UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
-            if ((GetAsyncKeyState(0x26) & 0x8000) != 0 && Strength < 10) {  // F4
+            if ((GetAsyncKeyState(0x2d) & 0x8000) != 0 && Strength < 10) {  // F4
                 Strength++;
                 PlayKeyBeep();
                 UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
-            if ((GetAsyncKeyState(0x28) & 0x8000) != 0 && Strength > 1) {  // F3
+            if ((GetAsyncKeyState(0x2e) & 0x8000) != 0 && Strength > 1) {  // F3
                 Strength--;
                 PlayKeyBeep();
                 UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
-            if ((GetAsyncKeyState(0x27) & 0x8000) != 0 && Smoothness < 10) {  // F5
+            if ((GetAsyncKeyState(0x24) & 0x8000) != 0 && Smoothness < 10) {  // F5
                 Smoothness++;
                 PlayKeyBeep();
                 UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
-            if ((GetAsyncKeyState(0x25) & 0x8000) != 0 && Smoothness > 1) {  // F2
+            if ((GetAsyncKeyState(0x23) & 0x8000) != 0 && Smoothness > 1) {  // F2
                 Smoothness--;
                 PlayKeyBeep();
                 UpdateConsoleTitle();
@@ -510,7 +510,7 @@ function Show-ControlPanel {
             Write-Host "■" -NoNewline -ForegroundColor DarkGray 
         }
     }
-    Write-Host "`t UP ARROW: Increase | DOWN ARROW: Decrease"
+    Write-Host "`t INSERT: Increase | DELETE: Decrease"
     
     # Smoothness line
     Write-Host " SMOOTHNESS: " -NoNewline
@@ -521,7 +521,7 @@ function Show-ControlPanel {
             Write-Host "■" -NoNewline -ForegroundColor DarkGray
         }
     }
-    Write-Host "`t RIGHT ARROW: Increase | LEFT ARROW: Decrease"
+    Write-Host "`t HOME: Increase | END: Decrease"
     
     # Assist Level line
     Write-Host " ASSIST LEVEL:" -NoNewline
