@@ -338,7 +338,9 @@ $dragAssistThread = [PowerShell]::Create().AddScript({
 
 $handle = $dragAssistThread.BeginInvoke()
 
-# Display control panel
+# ==================== FLICKER-FREE CONTROL PANEL ====================
+$script:lastDisplayState = $null
+
 function Show-ControlPanel {
     param(
         [int]$Strength = 5,
@@ -348,12 +350,25 @@ function Show-ControlPanel {
         [double]$AverageLatency = 0,
         [bool]$Enabled = $true
     )
-    
-    Clear-Host
-    Write-Host @"
+
+    # Only redraw if values changed
+    $currentState = @{
+        Enabled = $Enabled
+        Strength = $Strength
+        Smoothness = $Smoothness
+        AssistLevel = $AssistLevel
+        Frames = $Frames
+        AverageLatency = $AverageLatency
+    }
+
+    if ($null -eq $script:lastDisplayState -or (Compare-Object $script:lastDisplayState.GetEnumerator() $currentState.GetEnumerator())) {
+        # Move cursor to top instead of Clear-Host
+        $Host.UI.RawUI.CursorPosition = New-Object System.Management.Automation.Host.Coordinates 0,0
+
+        Write-Host @"
 
   _________                     ____  ___ __________                         .___.__  __   
- /   _____/____     ____   ____ \   \/  / \______   \ ____   ____   ____   __| _/|__|/  |_ 
+ /   _____/____     ____   ____ \  \/  / \______   \ ____   ____   ____   __| _/|__|/  |_ 
  \_____  \\__  \   / ___\_/ __ \ \     /   |       _// __ \ / ___\_/ __ \ / __ | |  \   __\
  /        \/ __ \_/ /_/  >  ___/ /     \   |    |   \  ___// /_/  >  ___// /_/ | |  ||  |  
 /_______  (____  /\___  / \___  >___/\  \  |____|_  /\___  >___  / \___  >____ | |__||__|  
@@ -362,66 +377,57 @@ function Show-ControlPanel {
                DRAG ASSIST CONTROL PANEL
                -------------------------
 "@
-    
-    # Status line
-    Write-Host " STATUS:   " -NoNewline
-    if ($Enabled) { 
-        Write-Host "ACTIVE  " -NoNewline -ForegroundColor Green
-    } else { 
-        Write-Host "INACTIVE" -NoNewline -ForegroundColor Red
-    }
-    Write-Host "`t`t F7: Toggle ON/OFF"
-    
-    # Strength line
-    Write-Host "`n STRENGTH:  " -NoNewline
-    1..10 | ForEach-Object {
-        if ($_ -le $Strength) {
-            Write-Host "■" -NoNewline -ForegroundColor Cyan
-        } else {
-            Write-Host "□" -NoNewline -ForegroundColor DarkGray
+
+        # Status line (dynamic)
+        Write-Host " STATUS:   " -NoNewline
+        if ($Enabled) { Write-Host "ACTIVE  " -NoNewline -ForegroundColor Green }
+        else { Write-Host "INACTIVE" -NoNewline -ForegroundColor Red }
+        Write-Host "`t`t F7: Toggle ON/OFF"
+
+        # Strength line (dynamic)
+        Write-Host "`n STRENGTH:  " -NoNewline
+        1..10 | ForEach-Object {
+            if ($_ -le $Strength) { Write-Host "■" -NoNewline -ForegroundColor Cyan }
+            else { Write-Host "□" -NoNewline -ForegroundColor DarkGray }
         }
-    }
-    Write-Host "`t F4: Increase | F3: Decrease"
-    
-    # Smoothness line
-    Write-Host " SMOOTHNESS: " -NoNewline
-    1..10 | ForEach-Object {
-        if ($_ -le $Smoothness) {
-            Write-Host "■" -NoNewline -ForegroundColor Cyan
-        } else {
-            Write-Host "□" -NoNewline -ForegroundColor DarkGray
+        Write-Host "`t F4: Increase | F3: Decrease"
+
+        # Smoothness line (dynamic)
+        Write-Host "`n SMOOTHNESS: " -NoNewline
+        1..10 | ForEach-Object {
+            if ($_ -le $Smoothness) { Write-Host "■" -NoNewline -ForegroundColor Cyan }
+            else { Write-Host "□" -NoNewline -ForegroundColor DarkGray }
         }
-    }
-    Write-Host "`t F5: Increase | F2: Decrease"
-    
-    # Assist Level line
-    Write-Host " ASSIST LEVEL:" -NoNewline
-    1..10 | ForEach-Object {
-        if ($_ -le $AssistLevel) {
-            Write-Host "■" -NoNewline -ForegroundColor Cyan
-        } else {
-            Write-Host "□" -NoNewline -ForegroundColor DarkGray
+        Write-Host "`t F5: Increase | F2: Decrease"
+
+        # Assist Level line (dynamic)
+        Write-Host "`n ASSIST LEVEL:" -NoNewline
+        1..10 | ForEach-Object {
+            if ($_ -le $AssistLevel) { Write-Host "■" -NoNewline -ForegroundColor Cyan }
+            else { Write-Host "□" -NoNewline -ForegroundColor DarkGray }
         }
+        Write-Host "`t F6: Increase | F1: Decrease"
+
+        # Performance line (dynamic)
+        Write-Host "`n`n PERFORMANCE:"
+        Write-Host (" FPS: " + $Frames.ToString().PadRight(5) + " LATENCY: " + $AverageLatency.ToString("0.00") + "ms")
+
+        # Static elements (don't change)
+        if ($null -eq $script:lastDisplayState) {
+            Write-Host "`n SID: $sid"
+            Write-Host "`n CONTROLS:"
+            Write-Host " - Hold LEFT MOUSE BUTTON to activate drag assist"
+            Write-Host " - Function keys adjust settings (F1-F7)"
+            Write-Host " - Close this window to exit"
+        }
+
+        $script:lastDisplayState = $currentState
     }
-    Write-Host "`t F6: Increase | F1: Decrease"
-    
-    # Performance line
-    Write-Host "`n PERFORMANCE:"
-    Write-Host (" FPS: " + $Frames.ToString().PadRight(5) + " LATENCY: " + $AverageLatency.ToString("0.00") + "ms")
-    
-    # SID line
-    Write-Host "`n SID: $sid"
-    
-    # Instructions
-    Write-Host "`n CONTROLS:"
-    Write-Host " - Hold LEFT MOUSE BUTTON to activate drag assist"
-    Write-Host " - Function keys adjust settings (F1-F7)"
-    Write-Host " - Close this window to exit"
 }
 
-# Update the UI periodically
-while ($true) {
-    try {
+# ==================== MAIN UI LOOP ====================
+try {
+    while ($true) {
         $status = @{
             Enabled = [SageXDragAssist]::Enabled
             Strength = [SageXDragAssist]::Strength
@@ -432,24 +438,23 @@ while ($true) {
         }
         
         Show-ControlPanel @status
-        Start-Sleep -Milliseconds 100
+        Start-Sleep -Milliseconds 250  # Smoother than 100ms
         
         if ($dragAssistThread.InvocationStateInfo.State -ne "Running") {
             Write-Host "[!] Drag assist thread has stopped unexpectedly!"
             break
         }
     }
-    catch {
-        Write-Host "[!] UI Update Error: $_"
-        Start-Sleep -Seconds 1
-    }
-}
-
-# Clean up when exiting
-try {
-    $dragAssistThread.Stop()
-    $dragAssistThread.Dispose()
 }
 catch {
-    # Ignore cleanup errors
+    Write-Host "[!] UI Update Error: $_"
+    Start-Sleep -Seconds 1
+}
+finally {
+    # Clean up when exiting
+    try {
+        $dragAssistThread.Stop()
+        $dragAssistThread.Dispose()
+    }
+    catch {}
 }
