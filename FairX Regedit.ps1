@@ -188,7 +188,7 @@ function Show-SystemInfo {
         Write-Host "[*] Your SID: $sid" -ForegroundColor Green
         
         $hwid = (Get-WmiObject -Class Win32_ComputerSystemProduct).UUID
-        $hashedHWID = [System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($hwid)) -replace "-", ""
+        $hashedHWID = [System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($hwid))) -replace "-", ""
         Write-Host "[*] Hashed HWID: $hashedHWID" -ForegroundColor Green
         
         $osInfo = Get-CimInstance Win32_OperatingSystem
@@ -283,6 +283,3 @@ $assistLevel = 3
 
 # Show initial status panel
 Show-StatusPanel -Enabled $enabled -Strength $strength -IsHolding $isHolding -AssistLevel $assistLevel
-
-# The rest of your original C# drag assist code would go here
-# [Previous C# code remains unchanged]
