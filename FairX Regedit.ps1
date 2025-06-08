@@ -148,6 +148,8 @@ function Initialize-OTPSystem {
 # Run OTP verification first
 Initialize-OTPSystem
 
+Clear-Host
+
 # ASCII Art with colors
 $colors = @("Red", "Yellow", "Cyan", "Green", "Magenta", "Blue", "White")
 
