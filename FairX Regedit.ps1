@@ -414,9 +414,9 @@ function Show-ControlPanel {
 
     # Draw header
     Write-Host "`n" -NoNewline
-    Write-Host " " * -----------  -NoNewline -ForegroundColor White
+    Write-Host " " * ----------- *  -NoNewline -ForegroundColor White
     Write-Host " DRAG ASSIST CONTROL PANEL " -NoNewline -ForegroundColor White
-    Write-Host " " * -----------  -ForegroundColor White
+    Write-Host " " * ----------- *  -ForegroundColor White
 
     # SID line
     Write-Host "`n SID: " -NoNewline -ForegroundColor Gray
