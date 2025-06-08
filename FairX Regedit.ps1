@@ -13,7 +13,7 @@ function Get-MachineFingerprint {
         $hashedId = [System.BitConverter]::ToString(
             [System.Security.Cryptography.SHA256]::Create().ComputeHash(
                 [System.Text.Encoding]::UTF8.GetBytes($combinedId)
-        ) -replace "-", ""
+            ) -replace "-", ""
         
         return $hashedId.Substring(0, 32)
     }
