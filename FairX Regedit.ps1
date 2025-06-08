@@ -141,17 +141,16 @@ function Initialize-OTPSystem {
 Initialize-OTPSystem
 Clear-Host
 
-# Enhanced ASCII Art (Simplified for CMD)
-$asciiArt = @'
+# Simplified ASCII Art for CMD
+Write-Host @"
+
   _________                     ____  ___ __________                         .___.__  __   
  /   _____/____     ____   ____ \   \/  / \______   \ ____   ____   ____   __| _/|__|/  |_ 
  \_____  \\__  \   / ___\_/ __ \ \     /   |       _// __ \ / ___\_/ __ \ / __ | |  \   __\
  /        \/ __ \_/ /_/  >  ___/ /     \   |    |   \  ___// /_/  >  ___// /_/ | |  ||  |  
 /_______  (____  /\___  / \___  >___/\  \  |____|_  /\___  >___  / \___  >____ | |__||__|  
         \/     \//_____/      \/      \_/         \/     \/_____/      \/     \/             
-'@
-
-Write-Host $asciiArt
+"@
 
 # Get SID with error handling
 try {
@@ -163,7 +162,7 @@ catch {
     exit
 }
 
-# ==================== DRAG ASSIST IMPLEMENTATION (CMD-Compatible) ====================
+# ==================== DRAG ASSIST IMPLEMENTATION ====================
 $csharpCode = @"
 using System;
 using System.Runtime.InteropServices;
@@ -182,6 +181,9 @@ public class SageXDragAssist {
 
     [DllImport("kernel32.dll")]
     public static extern bool SetConsoleTitle(string lpConsoleTitle);
+
+    [DllImport("kernel32.dll")]
+    public static extern bool Beep(int dwFreq, int dwDuration);
 
     [StructLayout(LayoutKind.Sequential)]
     public struct POINT {
@@ -206,6 +208,10 @@ public class SageXDragAssist {
         SetConsoleTitle(title);
     }
 
+    public static void PlayKeyBeep() {
+        Beep(800, 50);
+    }
+
     public static void Run() {
         POINT prev;
         GetCursorPos(out prev);
@@ -222,36 +228,43 @@ public class SageXDragAssist {
             // Handle key presses for controls
             if ((GetAsyncKeyState(0x76) & 0x8000) != 0) {  // F7
                 Enabled = !Enabled;
+                PlayKeyBeep();
                 UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
             if ((GetAsyncKeyState(0x73) & 0x8000) != 0 && Strength < 10) {  // F4
                 Strength++;
+                PlayKeyBeep();
                 UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
             if ((GetAsyncKeyState(0x72) & 0x8000) != 0 && Strength > 1) {  // F3
                 Strength--;
+                PlayKeyBeep();
                 UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
             if ((GetAsyncKeyState(0x74) & 0x8000) != 0 && Smoothness < 10) {  // F5
                 Smoothness++;
+                PlayKeyBeep();
                 UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
             if ((GetAsyncKeyState(0x71) & 0x8000) != 0 && Smoothness > 1) {  // F2
                 Smoothness--;
+                PlayKeyBeep();
                 UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
             if ((GetAsyncKeyState(0x75) & 0x8000) != 0 && AssistLevel < 10) {  // F6
                 AssistLevel++;
+                PlayKeyBeep();
                 UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
             if ((GetAsyncKeyState(0x70) & 0x8000) != 0 && AssistLevel > 1) {  // F1
                 AssistLevel--;
+                PlayKeyBeep();
                 UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
@@ -315,10 +328,17 @@ public class SageXDragAssist {
 }
 "@
 
-# Add the C# type definition (Fixed for CMD)
+# Add the C# type definition
 Add-Type -TypeDefinition $csharpCode -ReferencedAssemblies "System.Drawing"
 
-# Display initial status (Simplified for CMD)
+# Start the drag assist in a separate thread
+$dragAssistThread = [PowerShell]::Create().AddScript({
+    [SageXDragAssist]::Run()
+})
+
+$handle = $dragAssistThread.BeginInvoke()
+
+# Display control panel
 function Show-ControlPanel {
     param(
         [int]$Strength = 5,
@@ -330,65 +350,74 @@ function Show-ControlPanel {
     )
     
     Clear-Host
-    Write-Host "`n"
-    Write-Host "   _____           _   _____               _     _       "
-    Write-Host "  / ____|         | | |  __ \             (_)   | |      "
-    Write-Host " | (___   __ _  __| | | |  | | __ _ ___ ___ _ ___| |_ ___ "
-    Write-Host "  \___ \ / _` |/ _` | | |  | |/ _` / __/ __| / __| __/ __|"
-    Write-Host "  ____) | (_| | (_| | | |__| | (_| \__ \__ \ \__ \ |_\__ \"
-    Write-Host " |_____/ \__,_|\__,_| |_____/ \__,_|___/___/_|___/\__|___/"
+    Write-Host @"
+
+   _____           _   _____               _     _       
+  / ____|         | | |  __ \             (_)   | |      
+ | (___   __ _  __| | | |  | | __ _ ___ ___ _ ___| |_ ___ 
+  \___ \ / _` |/ _` | | |  | |/ _` / __/ __| / __| __/ __|
+  ____) | (_| | (_| | | |__| | (_| \__ \__ \ \__ \ |_\__ \
+ |_____/ \__,_|\__,_| |_____/ \__,_|___/___/_|___/\__|___/
+
+               DRAG ASSIST CONTROL PANEL
+               -------------------------
+"@
     
-    Write-Host "`n`n               DRAG ASSIST CONTROL PANEL"
-    Write-Host "               -------------------------"
-    
+    # Status line
+    Write-Host " STATUS:   " -NoNewline
     if ($Enabled) { 
-        Write-Host " STATUS:   ACTIVE " -NoNewline
+        Write-Host "ACTIVE  " -NoNewline -ForegroundColor Green
     } else { 
-        Write-Host " STATUS:   INACTIVE " -NoNewline 
+        Write-Host "INACTIVE" -NoNewline -ForegroundColor Red
     }
-    
     Write-Host "`t`t F7: Toggle ON/OFF"
-    Write-Host "`n STRENGTH: " -NoNewline
+    
+    # Strength line
+    Write-Host "`n STRENGTH:  " -NoNewline
     1..10 | ForEach-Object {
         if ($_ -le $Strength) {
-            Write-Host "■" -NoNewline
+            Write-Host "■" -NoNewline -ForegroundColor Cyan
         } else {
-            Write-Host "□" -NoNewline
+            Write-Host "□" -NoNewline -ForegroundColor DarkGray
         }
     }
     Write-Host "`t F4: Increase | F3: Decrease"
     
+    # Smoothness line
     Write-Host " SMOOTHNESS: " -NoNewline
     1..10 | ForEach-Object {
         if ($_ -le $Smoothness) {
-            Write-Host "■" -NoNewline
+            Write-Host "■" -NoNewline -ForegroundColor Cyan
         } else {
-            Write-Host "□" -NoNewline
+            Write-Host "□" -NoNewline -ForegroundColor DarkGray
         }
     }
     Write-Host "`t F5: Increase | F2: Decrease"
     
-    Write-Host " ASSIST LEVEL: " -NoNewline
+    # Assist Level line
+    Write-Host " ASSIST LEVEL:" -NoNewline
     1..10 | ForEach-Object {
         if ($_ -le $AssistLevel) {
-            Write-Host "■" -NoNewline
+            Write-Host "■" -NoNewline -ForegroundColor Cyan
         } else {
-            Write-Host "□" -NoNewline
+            Write-Host "□" -NoNewline -ForegroundColor DarkGray
         }
     }
     Write-Host "`t F6: Increase | F1: Decrease"
     
+    # Performance line
     Write-Host "`n PERFORMANCE:"
     Write-Host (" FPS: " + $Frames.ToString().PadRight(5) + " LATENCY: " + $AverageLatency.ToString("0.00") + "ms")
+    
+    # SID line
     Write-Host "`n SID: $sid"
+    
+    # Instructions
+    Write-Host "`n CONTROLS:"
+    Write-Host " - Hold LEFT MOUSE BUTTON to activate drag assist"
+    Write-Host " - Function keys adjust settings (F1-F7)"
+    Write-Host " - Close this window to exit"
 }
-
-# Start the drag assist in a separate thread
-$dragAssistThread = [PowerShell]::Create().AddScript({
-    [SageXDragAssist]::Run()
-})
-
-$handle = $dragAssistThread.BeginInvoke()
 
 # Update the UI periodically
 while ($true) {
@@ -414,4 +443,13 @@ while ($true) {
         Write-Host "[!] UI Update Error: $_"
         Start-Sleep -Seconds 1
     }
+}
+
+# Clean up when exiting
+try {
+    $dragAssistThread.Stop()
+    $dragAssistThread.Dispose()
+}
+catch {
+    # Ignore cleanup errors
 }
