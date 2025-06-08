@@ -409,9 +409,9 @@ $asciiArt -split "`n" | ForEach-Object {
 
     # Draw header
     Write-Host "`n" -NoNewline
-    Write-Host " " * -------------  -NoNewline -BackgroundColor DarkBlue
+    Write-Host " " * ------------- *  -NoNewline -BackgroundColor DarkBlue
     Write-Host " DRAG ASSIST CONTROL PANEL " -NoNewline -BackgroundColor DarkBlue -ForegroundColor White
-    Write-Host " " * ------------- -BackgroundColor DarkBlue
+    Write-Host " " * ------------- * -BackgroundColor DarkBlue
     Write-Host "`n"
     
     # Status line
@@ -427,9 +427,9 @@ $asciiArt -split "`n" | ForEach-Object {
     Write-Host "`n STRENGTH:  " -NoNewline
     1..10 | ForEach-Object {
         if ($_ -le $Strength) {
-            Write-Host "■" -NoNewline -ForegroundColor Cyan -BackgroundColor DarkBlue
+            Write-Host "■" -NoNewline -ForegroundColor Cyan 
         } else {
-            Write-Host "■" -NoNewline -ForegroundColor DarkGray -BackgroundColor DarkBlue
+            Write-Host "■" -NoNewline -ForegroundColor DarkGray 
         }
     }
     Write-Host "`t F4: Increase | F3: Decrease"
@@ -457,7 +457,7 @@ $asciiArt -split "`n" | ForEach-Object {
     Write-Host "`t F6: Increase | F1: Decrease"
     
     # Performance line
-    Write-Host "`n PERFORMANCE:" -BackgroundColor DarkBlue -ForegroundColor White
+    Write-Host "`n PERFORMANCE:" -ForegroundColor White
     Write-Host (" FPS: " + $Frames.ToString().PadRight(5) + " LATENCY: " + $AverageLatency.ToString("0.00") + "ms") -BackgroundColor Black -ForegroundColor Gray
     
     # SID line
