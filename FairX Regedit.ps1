@@ -272,7 +272,7 @@ function Show-Controls {
     # Status indicator
     $statusColor = if ($Enabled) { "Green" } else { "Red" }
     Write-Host "`nStatus: " -NoNewline
-    Write-Host ($Enabled ? "ACTIVE " : "INACTIVE") -ForegroundColor $statusColor
+    if ($Enabled) { Write-Host "ACTIVE " -ForegroundColor $statusColor } else { Write-Host "INACTIVE" -ForegroundColor $statusColor }
     
     # Strength slider
     Write-Host "`nStrength: [" -NoNewline
