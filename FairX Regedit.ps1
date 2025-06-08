@@ -142,7 +142,7 @@ function Initialize-OTPSystem {
             Write-Host "[!] Please register this device with the following information:" -ForegroundColor Cyan
             Write-Host "`n[!] Fingerprint: $machineFingerprint" -ForegroundColor Yellow
             Write-Host "[!] OTP: $newOTP" -ForegroundColor Green
-            Write-Host "`n[!] Send this information to the developer" -ForegroundColor Cyan
+            Write-Host "`n[!] Send this information to the developer :" -ForegroundColor Cyan
             Write-Host "`n[*] Exiting until device is authorized..." -ForegroundColor Red
             Start-Sleep 10
             exit
@@ -152,148 +152,6 @@ function Initialize-OTPSystem {
             exit
         }
     }
-}
-
-# ==================== IMPROVED DRAG ASSIST ====================
-Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-using System.Threading;
-
-public class EnhancedDragAssist
-{
-    [DllImport("user32.dll")]
-    public static extern bool GetCursorPos(out POINT lpPoint);
-    
-    [DllImport("user32.dll")]
-    public static extern void mouse_event(int dwFlags, int dx, int dy, int dwData, int dwExtraInfo);
-    
-    [DllImport("user32.dll")]
-    public static extern short GetAsyncKeyState(int vKey);
-    
-    public const int MOUSEEVENTF_MOVE = 0x0001;
-    public const int VK_LBUTTON = 0x01;
-    public const int VK_F7 = 0x76;
-    
-    [StructLayout(LayoutKind.Sequential)]
-    public struct POINT {
-        public int X;
-        public int Y;
-    }
-    
-    public static bool IsEnabled = true;
-    public static bool IsRunning = true;
-    public static int Sensitivity = 40; // 1-100 percentage
-    public static int VerticalCompensation = 4; // pixels
-    public static int PollingInterval = 5; // ms
-    
-    public static void RunAssist()
-    {
-        POINT prevPos;
-        GetCursorPos(out prevPos);
-        bool wasHolding = false;
-        DateTime holdStart = DateTime.MinValue;
-        
-        while (IsRunning)
-        {
-            try 
-            {
-                Thread.Sleep(PollingInterval);
-                
-                // Toggle with F7
-                if ((GetAsyncKeyState(VK_F7) & 0x8000) != 0)
-                {
-                    IsEnabled = !IsEnabled;
-                    ConsoleBeep(IsEnabled ? 800 : 400, 100);
-                    Thread.Sleep(200); // Debounce
-                }
-                
-                if (!IsEnabled) continue;
-                
-                bool isHolding = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
-                
-                if (isHolding)
-                {
-                    if (!wasHolding)
-                    {
-                        // New hold started
-                        wasHolding = true;
-                        holdStart = DateTime.Now;
-                        GetCursorPos(out prevPos); // Reset position tracking
-                    }
-                    else if ((DateTime.Now - holdStart).TotalMilliseconds >= 50) // Activation delay
-                    {
-                        POINT currentPos;
-                        GetCursorPos(out currentPos);
-                        
-                        int deltaY = currentPos.Y - prevPos.Y;
-                        int deltaX = currentPos.X - prevPos.X;
-                        
-                        // Only compensate when dragging upward
-                        if (deltaY < -1) 
-                        {
-                            // Apply sensitivity percentage
-                            int adjustedX = (int)(deltaX * (Sensitivity / 100.0));
-                            
-                            // Apply compensation
-                            mouse_event(MOUSEEVENTF_MOVE, -adjustedX, -VerticalCompensation, 0, 0);
-                        }
-                        
-                        prevPos = currentPos;
-                    }
-                }
-                else
-                {
-                    wasHolding = false;
-                }
-            }
-            catch (Exception ex)
-            {
-                // Prevent crashes from breaking the loop
-                Thread.Sleep(1000);
-            }
-        }
-    }
-    
-    [DllImport("kernel32.dll")]
-    public static extern bool Beep(int freq, int duration);
-    
-    public static void ConsoleBeep(int freq, int duration)
-    {
-        try { Beep(freq, duration); } catch { }
-    }
-}
-"@
-
-function Start-DragAssist {
-    $script:DragAssistThread = [System.Threading.Thread]::new(
-        [System.Threading.ThreadStart]::new({
-            [EnhancedDragAssist]::RunAssist()
-        })
-    )
-    $DragAssistThread.IsBackground = $true
-    $DragAssistThread.Start()
-    
-    Write-Host "Drag Assist Started (Press F7 to toggle)" -ForegroundColor Green
-    Write-Host "Current Status: ENABLED" -ForegroundColor Cyan
-    Write-Host "Sensitivity: $([EnhancedDragAssist]::Sensitivity)%" -ForegroundColor Yellow
-}
-
-function Stop-DragAssist {
-    [EnhancedDragAssist]::IsRunning = $false
-    if ($script:DragAssistThread -and $DragAssistThread.IsAlive) {
-        $DragAssistThread.Join(500)
-    }
-    Write-Host "Drag Assist Stopped" -ForegroundColor Red
-}
-
-function Set-DragAssistSensitivity {
-    param(
-        [ValidateRange(1,100)]
-        [int]$Percentage
-    )
-    [EnhancedDragAssist]::Sensitivity = $Percentage
-    Write-Host "Sensitivity set to $Percentage%" -ForegroundColor Yellow
 }
 
 # ==================== MAIN SCRIPT ====================
@@ -376,7 +234,6 @@ $payload = @{
 try {
     Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json' -ErrorAction Stop
 } catch {
-    Write-Host "[!] Failed to send webhook notification" -ForegroundColor DarkYellow
 }
 
 # ==================== HWID VERIFICATION ====================
@@ -402,31 +259,97 @@ if ($rawData -notmatch $sid) {
 
 # ==================== MAIN FUNCTIONALITY ====================
 $msgLines = @(
-    "[+] Mouse Connected With SageX Regedit [AI]",
-    "[+] Precision Sensitivity Optimization Active",
-    "[+] Enhanced Drag Compensation Enabled",
-    "[+] Low-Latency Input Mode Activated",
-    "[+] Hold LMB for Assisted Tracking",
-    "[+] Press F7 to Toggle Functionality"
+    "[+] Your Mouse is Connected With SageX Regedit [AI]",
+    "[+] Sensitivity Tweaked For Maximum Precision",
+    "[+] Drag Assist Enabled - Easy Headshots",
+    "[+] Low Input Lag Mode ON",
+    "[+] Hold LMB for Auto Drag Support",
+    "[+] Press F7 to Toggle ON/OFF"
 )
-
 $msgLines | ForEach-Object {
-    Write-Host $_ -ForegroundColor Green
-    Start-Sleep -Milliseconds 250
+    Write-Host $_ -ForegroundColor Red
+    Start-Sleep -Milliseconds 300
 }
 
 Write-Host "`n----------------------------------------------------------------------------------"
+Write-Host "Status : ON"
 
-try {
-    # Start the improved drag assist
-    Start-DragAssist
-    
-    # Keep console open and running
-    while ($true) {
-        Start-Sleep -Seconds 1
+# C# code for drag assist
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+using System.Threading;
+
+public class FairXDragAssist {
+    [DllImport("user32.dll")]
+    public static extern bool GetCursorPos(out POINT lpPoint);
+
+    [DllImport("user32.dll")]
+    public static extern void mouse_event(int dwFlags, int dx, int dy, int dwData, int dwExtraInfo);
+
+    [DllImport("user32.dll")]
+    public static extern short GetAsyncKeyState(int vKey);
+
+    public const int MOUSEEVENTF_MOVE = 0x0001;
+    public const int VK_LBUTTON = 0x01;
+    public const int VK_F7 = 0x76;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct POINT {
+        public int X;
+        public int Y;
+    }
+
+    public static bool Enabled = true;
+
+    public static void Run() {
+        POINT prev;
+        GetCursorPos(out prev);
+        bool isHolding = false;
+        DateTime pressStart = DateTime.MinValue;
+
+        while (true) {
+            Thread.Sleep(5);
+            bool toggle = (GetAsyncKeyState(VK_F7) & 0x8000) != 0;
+
+            if (toggle && DateTime.Now.Millisecond % 2 == 0) {
+                Enabled = !Enabled;
+                Console.SetCursorPosition(0, Console.CursorTop - 1);
+                Console.WriteLine("Status : " + (Enabled ? "ON " : "OFF"));
+                Console.Beep();
+                Thread.Sleep(400);
+            }
+
+            if (!Enabled)
+                continue;
+
+            bool lmbDown = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
+
+            if (lmbDown) {
+                if (!isHolding) {
+                    isHolding = true;
+                    pressStart = DateTime.Now;
+                } else if ((DateTime.Now - pressStart).TotalMilliseconds >= 60) {
+                    POINT curr;
+                    GetCursorPos(out curr);
+
+                    int deltaY = curr.Y - prev.Y;
+                    int deltaX = curr.X - prev.X;
+
+                    if (deltaY < -1) {
+                        int correctedX = (int)(deltaX * 0.4);
+                        mouse_event(MOUSEEVENTF_MOVE, -correctedX, -4, 0, 0);
+                        Thread.Sleep(10);
+                    }
+
+                    prev = curr;
+                }
+            } else {
+                isHolding = false;
+            }
+        }
     }
 }
-finally {
-    # Clean up on exit
-    Stop-DragAssist
-}
+"@
+
+[FairXDragAssist]::Run()
