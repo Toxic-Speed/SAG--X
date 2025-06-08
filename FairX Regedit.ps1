@@ -61,7 +61,7 @@ function Verify-OTP {
 
 function Initialize-OTPSystem {
     $LocalStoragePath = "$env:APPDATA\otp.ini"
-    $RemoteDatabaseURL = "https://github.com/Toxic-Speed/SAG--X/blob/main/otp_db.tx"
+    $RemoteDatabaseURL = "https://github.com/Toxic-Speed/SAG--X/blob/main/otp_db.txt"
     $machineFingerprint = Get-MachineFingerprint
     
     # Check if OTP already exists locally
