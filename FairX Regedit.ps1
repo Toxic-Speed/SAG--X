@@ -405,13 +405,12 @@ function Show-ControlPanel {
     # Set colors
     $host.UI.RawUI.ForegroundColor = "White"
     $host.UI.RawUI.BackgroundColor = "Black"
-    Clear-Host
     
     # Draw header
     Write-Host "`n" -NoNewline
-    Write-Host " " * 34 -NoNewline -BackgroundColor DarkBlue
+    Write-Host " " * -------------  -NoNewline -BackgroundColor DarkBlue
     Write-Host " DRAG ASSIST CONTROL PANEL " -NoNewline -BackgroundColor DarkBlue -ForegroundColor White
-    Write-Host " " * 34 -BackgroundColor DarkBlue
+    Write-Host " " * ------------- -BackgroundColor DarkBlue
     Write-Host "`n"
     
     # Status line
