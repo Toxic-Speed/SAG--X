@@ -478,6 +478,21 @@ function Show-ControlPanel {
     Write-Host "`n SID: " -NoNewline -ForegroundColor Gray
     Write-Host $sid -ForegroundColor Yellow
     Write-Host "`n"
+
+    #MSG LINE
+    $msgLines = @(
+    "[+] Your Mouse is Connected With SageX Regedit [AI]",
+    "[+] Sensitivity Tweaked For Maximum Precision",
+    "[+] Drag Assist Enabled - Easy Headshots",
+    "[+] Low Input Lag Mode ON",
+    "[+] Hold LMB for Auto Drag Support",
+    "[+] Press F7 to Toggle ON/OFF"
+    )
+    $msgLines | ForEach-Object {
+    Write-Host $_ -ForegroundColor Red
+    Start-Sleep -Milliseconds 300
+    }
+
     
     # Status line
     Write-Host " STATUS:   " -NoNewline
@@ -528,7 +543,7 @@ function Show-ControlPanel {
     # Instructions
     Write-Host "`n CONTROLS:" -ForegroundColor White
     Write-Host " - Hold LEFT MOUSE BUTTON to activate drag assist" -ForegroundColor Gray
-    Write-Host " - All keys are described at " -ForegroundColor Gray
+    Write-Host " - All keys are described at the side of the bars " -ForegroundColor Gray
     Write-Host " - Close this window to exit" -ForegroundColor Gray
 }
 
