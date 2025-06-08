@@ -12,7 +12,8 @@ function Get-MachineFingerprint {
     $hashedId = [System.BitConverter]::ToString(
         [System.Security.Cryptography.SHA256]::Create().ComputeHash(
             [System.Text.Encoding]::UTF8.GetBytes($combinedId)
-        ) -replace "-", ""
+        )
+    ) -replace "-", ""
     
     return $hashedId.Substring(0, 32)  # Return first 32 chars of hash
 }
@@ -97,7 +98,7 @@ function Initialize-OTPSystem {
     $machineFingerprint = Get-MachineFingerprint
     
     # Check if OTP already exists locally
-    if (Test-Path $LocalStoragePath)) {
+    if (Test-Path $LocalStoragePath) {
         try {
             $localOTP = Get-Content $LocalStoragePath | Where-Object { $_ -match '^otp=' } | ForEach-Object { ($_ -split '=')[1] }
             
@@ -187,7 +188,7 @@ function Show-SystemInfo {
         Write-Host "[*] Your SID: $sid" -ForegroundColor Green
         
         $hwid = (Get-WmiObject -Class Win32_ComputerSystemProduct).UUID
-        $hashedHWID = [System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($hwid))) -replace "-", ""
+        $hashedHWID = [System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($hwid)) -replace "-", ""
         Write-Host "[*] Hashed HWID: $hashedHWID" -ForegroundColor Green
         
         $osInfo = Get-CimInstance Win32_OperatingSystem
@@ -228,13 +229,21 @@ function Show-StatusPanel {
     $statusColor = if ($Enabled) { "Green" } else { "Red" }
     $statusIcon = if ($Enabled) { "✔" } else { "✖" }
     Write-Host "[Status]   " -NoNewline
-    Write-Host "$statusIcon $($Enabled ? 'ACTIVE' : 'INACTIVE')" -ForegroundColor $statusColor
+    if ($Enabled) {
+        Write-Host "$statusIcon ACTIVE" -ForegroundColor $statusColor
+    } else {
+        Write-Host "$statusIcon INACTIVE" -ForegroundColor $statusColor
+    }
     
     # LMB Hold indicator
     $holdColor = if ($IsHolding) { "Cyan" } else { "Gray" }
     $holdIcon = if ($IsHolding) { "↓" } else { "↑" }
     Write-Host "[LMB Hold] " -NoNewline
-    Write-Host "$holdIcon $($IsHolding ? 'DETECTED' : 'WAITING')" -ForegroundColor $holdColor
+    if ($IsHolding) {
+        Write-Host "$holdIcon DETECTED" -ForegroundColor $holdColor
+    } else {
+        Write-Host "$holdIcon WAITING" -ForegroundColor $holdColor
+    }
     
     # Strength meter
     Write-Host "[Strength] " -NoNewline
