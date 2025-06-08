@@ -75,17 +75,12 @@ function Send-WebhookMessage {
         }
 
         $webhookResponse = Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -Headers $headers -ErrorAction Stop
-        
-        Write-Host "[+] Webhook sent successfully" -ForegroundColor Green
         return $true
     }
     catch {
-        Write-Host "[!] Webhook failed to send: $($_.Exception.Message)" -ForegroundColor Red
-        
-        # If it's a rate limit issue
+         # If it's a rate limit issue
         if ($_.Exception.Response -and $_.Exception.Response.StatusCode -eq 429) {
             $retryAfter = $_.Exception.Response.Headers['Retry-After']
-            Write-Host "[!] Rate limited. Retry after: $retryAfter seconds" -ForegroundColor Yellow
         }
         
         return $false
