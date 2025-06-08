@@ -415,7 +415,7 @@ $asciiArt -split "`n" | ForEach-Object {
     Write-Host "`n"
 
     # SID line
-    Write-Host "`n SID: " -NoNewline -ForegroundColor Gray
+    Write-Host "`n SID: " -ForegroundColor Gray
     Write-Host $sid -ForegroundColor Yellow
     
     # Status line
