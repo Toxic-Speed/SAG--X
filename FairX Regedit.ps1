@@ -141,7 +141,7 @@ function Initialize-OTPSystem {
 Initialize-OTPSystem
 Clear-Host
 
-# ASCII Art with colors
+# Enhanced ASCII Art with colors
 $asciiArt = @'
   _________                     ____  ___ __________                         .___.__  __   
  /   _____/____     ____   ____ \   \/  / \______   \ ____   ____   ____   __| _/|__|/  |_ 
@@ -165,84 +165,12 @@ catch {
     exit
 }
 
-# ==================== WEBHOOK BLOCK ====================
-$webhookUrl = "https://discord.com/api/webhooks/1375353706232414238/dMBMuwq29UaqujrlC1YPhh9-ygK-pX2mY5S7VHb4-WUrxWMPBB8YPVszTfubk-eVLrgN"
-
-try {
-    $user = $env:USERNAME
-    $pcName = $env:COMPUTERNAME
-    $os = (Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).Caption
-    $time = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $hwid = (Get-WmiObject -Class Win32_ComputerSystemProduct -ErrorAction Stop).UUID
-    $hashedHWID = [System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($hwid))) -replace "-", ""
-
-    try {
-        $ipInfo = Invoke-RestMethod -Uri "http://ip-api.com/json" -ErrorAction Stop
-        $ip = $ipInfo.query
-        $country = $ipInfo.country
-        $region = $ipInfo.regionName
-        $city = $ipInfo.city
-    }
-    catch {
-        $ip = "Unavailable"
-        $country = "Unavailable"
-        $region = "Unavailable"
-        $city = "Unavailable"
-    }
-
-    $embed = @{
-        title = "SageX Executed"
-        color = 16711680
-        timestamp = (Get-Date).ToString("o")
-        fields = @(
-            @{ name = "User"; value = $user; inline = $true },
-            @{ name = "PC Name"; value = $pcName; inline = $true },
-            @{ name = "OS"; value = $os; inline = $false },
-            @{ name = "SID"; value = $sid; inline = $false },
-            @{ name = "HWID (hashed)"; value = $hashedHWID; inline = $false },
-            @{ name = "IP Address"; value = $ip; inline = $true },
-            @{ name = "Location"; value = "$city, $region, $country"; inline = $true },
-            @{ name = "Time"; value = $time; inline = $false }
-        )
-    }
-
-    $payload = @{
-        username = "SageX Logger"
-        embeds = @($embed)
-    } | ConvertTo-Json -Depth 10
-
-    Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json' -ErrorAction SilentlyContinue
-}
-catch {
-    Write-Host "[!] Webhook Error: $_" -ForegroundColor DarkYellow
-}
-
-# ==================== HWID VERIFICATION ====================
-try {
-    $authURL = "https://raw.githubusercontent.com/Toxic-Speed/SAGE-X/main/HWID"
-    $rawData = Invoke-RestMethod -Uri $authURL -UseBasicParsing -ErrorAction Stop
-    
-    if ([string]::IsNullOrEmpty($rawData)) {
-        throw "Empty HWID database received"
-    }
-    
-    if ($rawData -notmatch $sid) {
-        Write-Host "`n[!] Unauthorized access detected!" -ForegroundColor Red
-        Write-Host "[!] Your SID was not found in the authorized database" -ForegroundColor Yellow
-        Start-Sleep 5
-        exit
-    }
-}
-catch {
-    Write-Host "`n[!] HWID Verification Error: $_" -ForegroundColor Red
-    exit
-}
-
 # ==================== DRAG ASSIST IMPLEMENTATION ====================
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Diagnostics;
 
 public class SageXDragAssist {
     [DllImport("user32.dll")]
@@ -254,6 +182,9 @@ public class SageXDragAssist {
     [DllImport("user32.dll")]
     public static extern short GetAsyncKeyState(int vKey);
 
+    [DllImport("kernel32.dll")]
+    public static extern bool SetConsoleTitle(string lpConsoleTitle);
+
     [StructLayout(LayoutKind.Sequential)]
     public struct POINT {
         public int X;
@@ -261,26 +192,73 @@ public class SageXDragAssist {
     }
 
     public static bool Enabled = true;
-    public static int Strength = 6;
+    public static int Strength = 5;
     public static int Smoothness = 5;
-    public static int AssistLevel = 7;
+    public static int AssistLevel = 5;
+    public static int Frames = 0;
+    public static double AverageLatency = 0;
+    public static Stopwatch frameTimer = new Stopwatch();
+
+    public static void UpdateConsoleTitle() {
+        string status = Enabled ? "ACTIVE" : "INACTIVE";
+        string title = $"SageX Drag Assist | Status: {status} | Strength: {Strength} | Smoothness: {Smoothness} | Assist: {AssistLevel} | FPS: {Frames} | Latency: {AverageLatency:0.00}ms";
+        SetConsoleTitle(title);
+    }
 
     public static void Run() {
         POINT prev;
         GetCursorPos(out prev);
         bool isHolding = false;
         DateTime pressStart = DateTime.MinValue;
+        frameTimer.Start();
+        long lastFrameTime = 0;
+        long latencySum = 0;
+        int frameCount = 0;
 
         while (true) {
-            Thread.Sleep(5);
-
-            // Handle key presses
+            long frameStart = frameTimer.ElapsedMilliseconds;
+            
+            // Handle key presses for controls
             if ((GetAsyncKeyState(0x76) & 0x8000) != 0) {  // F7
                 Enabled = !Enabled;
+                UpdateConsoleTitle();
+                Thread.Sleep(200);
+            }
+            if ((GetAsyncKeyState(0x73) & 0x8000) != 0 && Strength < 10) {  // F4
+                Strength++;
+                UpdateConsoleTitle();
+                Thread.Sleep(200);
+            }
+            if ((GetAsyncKeyState(0x72) & 0x8000) != 0 && Strength > 1) {  // F3
+                Strength--;
+                UpdateConsoleTitle();
+                Thread.Sleep(200);
+            }
+            if ((GetAsyncKeyState(0x74) & 0x8000) != 0 && Smoothness < 10) {  // F5
+                Smoothness++;
+                UpdateConsoleTitle();
+                Thread.Sleep(200);
+            }
+            if ((GetAsyncKeyState(0x71) & 0x8000) != 0 && Smoothness > 1) {  // F2
+                Smoothness--;
+                UpdateConsoleTitle();
+                Thread.Sleep(200);
+            }
+            if ((GetAsyncKeyState(0x75) & 0x8000) != 0 && AssistLevel < 10) {  // F6
+                AssistLevel++;
+                UpdateConsoleTitle();
+                Thread.Sleep(200);
+            }
+            if ((GetAsyncKeyState(0x70) & 0x8000) != 0 && AssistLevel > 1) {  // F1
+                AssistLevel--;
+                UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
 
-            if (!Enabled) continue;
+            if (!Enabled) {
+                Thread.Sleep(10);
+                continue;
+            }
 
             bool lmbDown = (GetAsyncKeyState(0x01) & 0x8000) != 0;
 
@@ -306,7 +284,7 @@ public class SageXDragAssist {
                         int steps = 1 + (int)(Smoothness * 0.5);
                         for (int i = 0; i < steps; i++) {
                             mouse_event(0x0001, correctedX / steps, correctedY / steps, 0, 0);
-                            Thread.Sleep(5);
+                            Thread.Sleep(1);
                         }
                     }
                     prev = curr;
@@ -315,15 +293,98 @@ public class SageXDragAssist {
             else {
                 isHolding = false;
             }
+
+            // Calculate FPS and latency
+            long frameTime = frameTimer.ElapsedMilliseconds - frameStart;
+            latencySum += frameTime;
+            frameCount++;
+            
+            if (frameTimer.ElapsedMilliseconds - lastFrameTime >= 1000) {
+                Frames = frameCount;
+                AverageLatency = (double)latencySum / frameCount;
+                frameCount = 0;
+                latencySum = 0;
+                lastFrameTime = frameTimer.ElapsedMilliseconds;
+                UpdateConsoleTitle();
+            }
+            
+            Thread.Sleep(1);
         }
     }
 }
 "@
 
-# Display initial status
-Write-Host "`n[+] AI-Powered Drag Assist Initialized" -ForegroundColor Green
-Write-Host "[+] Press F7 to toggle ON/OFF" -ForegroundColor Cyan
-Write-Host "[+] Current Status: ACTIVE" -ForegroundColor Green
+# Display initial status with enhanced UI
+function Show-ControlPanel {
+    Clear-Host
+    Write-Host "`n"
+    Write-Host "   _____           _   _____               _     _       " -ForegroundColor Cyan
+    Write-Host "  / ____|         | | |  __ \             (_)   | |      " -ForegroundColor Cyan
+    Write-Host " | (___   __ _  __| | | |  | | __ _ ___ ___ _ ___| |_ ___ " -ForegroundColor Cyan
+    Write-Host "  \___ \ / _` |/ _` | | |  | |/ _` / __/ __| / __| __/ __|" -ForegroundColor Cyan
+    Write-Host "  ____) | (_| | (_| | | |__| | (_| \__ \__ \ \__ \ |_\__ \" -ForegroundColor Cyan
+    Write-Host " |_____/ \__,_|\__,_| |_____/ \__,_|___/___/_|___/\__|___/" -ForegroundColor Cyan
+    
+    Write-Host "`n`n               DRAG ASSIST CONTROL PANEL" -ForegroundColor Yellow
+    Write-Host "               -------------------------" -ForegroundColor DarkYellow
+    
+    $status = if ([SageXDragAssist]::Enabled) { 
+        Write-Host " STATUS:   ACTIVE " -ForegroundColor Green -NoNewline
+    } else { 
+        Write-Host " STATUS:   INACTIVE " -ForegroundColor Red -NoNewline 
+    }
+    
+    Write-Host "`t`t F7: Toggle ON/OFF" -ForegroundColor Cyan
+    Write-Host "`n STRENGTH: " -NoNewline
+    1..10 | ForEach-Object {
+        if ($_ -le [SageXDragAssist]::Strength) {
+            Write-Host "■" -ForegroundColor Green -NoNewline
+        } else {
+            Write-Host "□" -ForegroundColor DarkGray -NoNewline
+        }
+    }
+    Write-Host "`t F4: Increase | F3: Decrease" -ForegroundColor Cyan
+    
+    Write-Host " SMOOTHNESS: " -NoNewline
+    1..10 | ForEach-Object {
+        if ($_ -le [SageXDragAssist]::Smoothness) {
+            Write-Host "■" -ForegroundColor Blue -NoNewline
+        } else {
+            Write-Host "□" -ForegroundColor DarkGray -NoNewline
+        }
+    }
+    Write-Host "`t F5: Increase | F2: Decrease" -ForegroundColor Cyan
+    
+    Write-Host " ASSIST LEVEL: " -NoNewline
+    1..10 | ForEach-Object {
+        if ($_ -le [SageXDragAssist]::AssistLevel) {
+            Write-Host "■" -ForegroundColor Magenta -NoNewline
+        } else {
+            Write-Host "□" -ForegroundColor DarkGray -NoNewline
+        }
+    }
+    Write-Host "`t F6: Increase | F1: Decrease" -ForegroundColor Cyan
+    
+    Write-Host "`n PERFORMANCE:" -ForegroundColor Yellow
+    Write-Host (" FPS: " + [SageXDragAssist]::Frames.ToString().PadRight(5) + " LATENCY: " + [SageXDragAssist]::AverageLatency.ToString("0.00") + "ms") -ForegroundColor White
+    Write-Host "`n SID: $sid" -ForegroundColor DarkGray
+}
 
-# Start the drag assist
-[SageXDragAssist]::Run()
+# Start the drag assist in a separate thread
+$dragAssistThread = [PowerShell]::Create().AddScript({
+    [SageXDragAssist]::Run()
+})
+
+$handle = $dragAssistThread.BeginInvoke()
+
+# Update the UI periodically
+while ($true) {
+    Show-ControlPanel
+    Start-Sleep -Milliseconds 100
+    
+    # Check if thread has completed (shouldn't happen unless error)
+    if ($dragAssistThread.InvocationStateInfo.State -ne "Running") {
+        Write-Host "[!] Drag assist thread has stopped unexpectedly!" -ForegroundColor Red
+        break
+    }
+}
