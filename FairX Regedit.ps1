@@ -409,9 +409,9 @@ $asciiArt -split "`n" | ForEach-Object {
 
     # Draw header
     Write-Host "`n" -NoNewline
-    Write-Host " " * ------------- *  -NoNewline -BackgroundColor DarkBlue
+    Write-Host " " * ------------- *  -NoNewline
     Write-Host " DRAG ASSIST CONTROL PANEL " -NoNewline -ForegroundColor White
-    Write-Host " " * ------------- * -BackgroundColor DarkBlue
+    Write-Host " " * ------------- * 
     Write-Host "`n"
     
     # Status line
