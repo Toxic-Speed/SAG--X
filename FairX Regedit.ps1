@@ -166,7 +166,7 @@ catch {
 }
 
 # ==================== DRAG ASSIST IMPLEMENTATION ====================
-Add-Type -TypeDefinition @"
+$csharpCode = @"
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -314,8 +314,20 @@ public class SageXDragAssist {
 }
 "@
 
+# Add the C# type definition
+Add-Type -TypeDefinition $csharpCode -ReferencedAssemblies "System.Drawing"
+
 # Display initial status with enhanced UI
 function Show-ControlPanel {
+    param(
+        [int]$Strength = 5,
+        [int]$Smoothness = 5,
+        [int]$AssistLevel = 5,
+        [int]$Frames = 0,
+        [double]$AverageLatency = 0,
+        [bool]$Enabled = $true
+    )
+    
     Clear-Host
     Write-Host "`n"
     Write-Host "   _____           _   _____               _     _       " -ForegroundColor Cyan
@@ -328,7 +340,7 @@ function Show-ControlPanel {
     Write-Host "`n`n               DRAG ASSIST CONTROL PANEL" -ForegroundColor Yellow
     Write-Host "               -------------------------" -ForegroundColor DarkYellow
     
-    $status = if ([SageXDragAssist]::Enabled) { 
+    if ($Enabled) { 
         Write-Host " STATUS:   ACTIVE " -ForegroundColor Green -NoNewline
     } else { 
         Write-Host " STATUS:   INACTIVE " -ForegroundColor Red -NoNewline 
@@ -337,7 +349,7 @@ function Show-ControlPanel {
     Write-Host "`t`t F7: Toggle ON/OFF" -ForegroundColor Cyan
     Write-Host "`n STRENGTH: " -NoNewline
     1..10 | ForEach-Object {
-        if ($_ -le [SageXDragAssist]::Strength) {
+        if ($_ -le $Strength) {
             Write-Host "■" -ForegroundColor Green -NoNewline
         } else {
             Write-Host "□" -ForegroundColor DarkGray -NoNewline
@@ -347,7 +359,7 @@ function Show-ControlPanel {
     
     Write-Host " SMOOTHNESS: " -NoNewline
     1..10 | ForEach-Object {
-        if ($_ -le [SageXDragAssist]::Smoothness) {
+        if ($_ -le $Smoothness) {
             Write-Host "■" -ForegroundColor Blue -NoNewline
         } else {
             Write-Host "□" -ForegroundColor DarkGray -NoNewline
@@ -357,7 +369,7 @@ function Show-ControlPanel {
     
     Write-Host " ASSIST LEVEL: " -NoNewline
     1..10 | ForEach-Object {
-        if ($_ -le [SageXDragAssist]::AssistLevel) {
+        if ($_ -le $AssistLevel) {
             Write-Host "■" -ForegroundColor Magenta -NoNewline
         } else {
             Write-Host "□" -ForegroundColor DarkGray -NoNewline
@@ -366,7 +378,7 @@ function Show-ControlPanel {
     Write-Host "`t F6: Increase | F1: Decrease" -ForegroundColor Cyan
     
     Write-Host "`n PERFORMANCE:" -ForegroundColor Yellow
-    Write-Host (" FPS: " + [SageXDragAssist]::Frames.ToString().PadRight(5) + " LATENCY: " + [SageXDragAssist]::AverageLatency.ToString("0.00") + "ms") -ForegroundColor White
+    Write-Host (" FPS: " + $Frames.ToString().PadRight(5) + " LATENCY: " + $AverageLatency.ToString("0.00") + "ms") -ForegroundColor White
     Write-Host "`n SID: $sid" -ForegroundColor DarkGray
 }
 
@@ -379,12 +391,27 @@ $handle = $dragAssistThread.BeginInvoke()
 
 # Update the UI periodically
 while ($true) {
-    Show-ControlPanel
-    Start-Sleep -Milliseconds 100
-    
-    # Check if thread has completed (shouldn't happen unless error)
-    if ($dragAssistThread.InvocationStateInfo.State -ne "Running") {
-        Write-Host "[!] Drag assist thread has stopped unexpectedly!" -ForegroundColor Red
-        break
+    try {
+        $status = @{
+            Enabled = [SageXDragAssist]::Enabled
+            Strength = [SageXDragAssist]::Strength
+            Smoothness = [SageXDragAssist]::Smoothness
+            AssistLevel = [SageXDragAssist]::AssistLevel
+            Frames = [SageXDragAssist]::Frames
+            AverageLatency = [SageXDragAssist]::AverageLatency
+        }
+        
+        Show-ControlPanel @status
+        Start-Sleep -Milliseconds 100
+        
+        # Check if thread has completed (shouldn't happen unless error)
+        if ($dragAssistThread.InvocationStateInfo.State -ne "Running") {
+            Write-Host "[!] Drag assist thread has stopped unexpectedly!" -ForegroundColor Red
+            break
+        }
+    }
+    catch {
+        Write-Host "[!] UI Update Error: $_" -ForegroundColor DarkYellow
+        Start-Sleep -Seconds 1
     }
 }
