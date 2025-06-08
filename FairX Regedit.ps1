@@ -410,7 +410,7 @@ $asciiArt -split "`n" | ForEach-Object {
     # Draw header
     Write-Host "`n" -NoNewline
     Write-Host " " * ------------- *  -NoNewline -BackgroundColor DarkBlue
-    Write-Host " DRAG ASSIST CONTROL PANEL " -NoNewline -BackgroundColor DarkBlue -ForegroundColor White
+    Write-Host " DRAG ASSIST CONTROL PANEL " -NoNewline -ForegroundColor White
     Write-Host " " * ------------- * -BackgroundColor DarkBlue
     Write-Host "`n"
     
@@ -438,9 +438,9 @@ $asciiArt -split "`n" | ForEach-Object {
     Write-Host " SMOOTHNESS: " -NoNewline
     1..10 | ForEach-Object {
         if ($_ -le $Smoothness) {
-            Write-Host "■" -NoNewline -ForegroundColor Cyan -BackgroundColor DarkBlue
+            Write-Host "■" -NoNewline -ForegroundColor Cyan 
         } else {
-            Write-Host "■" -NoNewline -ForegroundColor DarkGray -BackgroundColor DarkBlue
+            Write-Host "■" -NoNewline -ForegroundColor DarkGray
         }
     }
     Write-Host "`t F5: Increase | F2: Decrease"
@@ -449,9 +449,9 @@ $asciiArt -split "`n" | ForEach-Object {
     Write-Host " ASSIST LEVEL:" -NoNewline
     1..10 | ForEach-Object {
         if ($_ -le $AssistLevel) {
-            Write-Host "■" -NoNewline -ForegroundColor Cyan -BackgroundColor DarkBlue
+            Write-Host "■" -NoNewline -ForegroundColor Cyan 
         } else {
-            Write-Host "■" -NoNewline -ForegroundColor DarkGray -BackgroundColor DarkBlue
+            Write-Host "■" -NoNewline -ForegroundColor DarkGray
         }
     }
     Write-Host "`t F6: Increase | F1: Decrease"
