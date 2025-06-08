@@ -16,7 +16,7 @@ function Get-MachineFingerprint {
         return $hashedId.Substring(0, 32)
     }
     catch {
-        Write-Host "[!] Error generating machine fingerprint: $_" -ForegroundColor Red
+        Write-Host "[!] Error generating machine fingerprint: $_"
         exit
     }
 }
@@ -37,7 +37,7 @@ function Generate-SecureOTP {
         return $otp
     }
     catch {
-        Write-Host "[!] Error generating OTP: $_" -ForegroundColor Red
+        Write-Host "[!] Error generating OTP: $_"
         exit
     }
 }
@@ -69,7 +69,7 @@ function Verify-OTP {
         } while ($true)
 
         if ([string]::IsNullOrEmpty($remoteData)) {
-            Write-Host "[!] Empty OTP database received" -ForegroundColor Red
+            Write-Host "[!] Empty OTP database received"
             return $false
         }
         
@@ -77,7 +77,7 @@ function Verify-OTP {
         return ($remoteData -match $pattern)
     }
     catch {
-        Write-Host "[!] Failed to verify OTP: $_" -ForegroundColor Red
+        Write-Host "[!] Failed to verify OTP: $_"
         return $false
     }
 }
@@ -101,9 +101,9 @@ function Initialize-OTPSystem {
             }
             
             if (-not (Verify-OTP -MachineFingerprint $machineFingerprint -OTP $localOTP -DatabaseURL $RemoteDatabaseURL)) {
-                Write-Host "`n[!] Device not authorized. Please contact support." -ForegroundColor Red
-                Write-Host "[!] Fingerprint: $machineFingerprint" -ForegroundColor Yellow
-                Write-Host "[!] OTP: $localOTP" -ForegroundColor Cyan
+                Write-Host "`n[!] Device not authorized. Please contact support."
+                Write-Host "[!] Fingerprint: $machineFingerprint"
+                Write-Host "[!] OTP: $localOTP"
                 Start-Sleep 15
                 exit
             }
@@ -120,19 +120,19 @@ function Initialize-OTPSystem {
             )
             
             $otpContent | Out-File -FilePath $LocalStoragePath -Force -Encoding UTF8
-            Write-Host "`n[!] FIRST-TIME SETUP REQUIRED" -ForegroundColor Yellow
-            Write-Host "=============================================" -ForegroundColor Cyan
-            Write-Host "[!] Please register this device with the following information:" -ForegroundColor Cyan
-            Write-Host "`n[!] Fingerprint: $machineFingerprint" -ForegroundColor Yellow
-            Write-Host "[!] OTP: $newOTP" -ForegroundColor Green
-            Write-Host "`n[!] Send this information to the developer" -ForegroundColor Cyan
-            Write-Host "`n[*] Exiting until device is authorized..." -ForegroundColor Red
+            Write-Host "`n[!] FIRST-TIME SETUP REQUIRED"
+            Write-Host "============================================="
+            Write-Host "[!] Please register this device with the following information:"
+            Write-Host "`n[!] Fingerprint: $machineFingerprint"
+            Write-Host "[!] OTP: $newOTP"
+            Write-Host "`n[!] Send this information to the developer"
+            Write-Host "`n[*] Exiting until device is authorized..."
             Start-Sleep 10
             exit
         }
     }
     catch {
-        Write-Host "[!] OTP System Error: $_" -ForegroundColor Red
+        Write-Host "[!] OTP System Error: $_"
         exit
     }
 }
@@ -141,7 +141,7 @@ function Initialize-OTPSystem {
 Initialize-OTPSystem
 Clear-Host
 
-# Enhanced ASCII Art with colors
+# Enhanced ASCII Art (Simplified for CMD)
 $asciiArt = @'
   _________                     ____  ___ __________                         .___.__  __   
  /   _____/____     ____   ____ \   \/  / \______   \ ____   ____   ____   __| _/|__|/  |_ 
@@ -151,21 +151,19 @@ $asciiArt = @'
         \/     \//_____/      \/      \_/         \/     \/_____/      \/     \/             
 '@
 
-$asciiArt -split "`n" | ForEach-Object {
-    Write-Host $_ -ForegroundColor (Get-Random @("Red", "Yellow", "Cyan", "Green", "Magenta", "Blue", "White"))
-}
+Write-Host $asciiArt
 
 # Get SID with error handling
 try {
     $sid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
-    Write-Host "`n[*] Your SID: $sid" -ForegroundColor Yellow
+    Write-Host "`n[*] Your SID: $sid"
 }
 catch {
-    Write-Host "[!] Failed to get SID: $_" -ForegroundColor Red
+    Write-Host "[!] Failed to get SID: $_"
     exit
 }
 
-# ==================== DRAG ASSIST IMPLEMENTATION ====================
+# ==================== DRAG ASSIST IMPLEMENTATION (CMD-Compatible) ====================
 $csharpCode = @"
 using System;
 using System.Runtime.InteropServices;
@@ -201,7 +199,10 @@ public class SageXDragAssist {
 
     public static void UpdateConsoleTitle() {
         string status = Enabled ? "ACTIVE" : "INACTIVE";
-        string title = $"SageX Drag Assist | Status: {status} | Strength: {Strength} | Smoothness: {Smoothness} | Assist: {AssistLevel} | FPS: {Frames} | Latency: {AverageLatency:0.00}ms";
+        string title = string.Format(
+            "SageX Drag Assist | Status: {0} | Strength: {1} | Smoothness: {2} | Assist: {3} | FPS: {4} | Latency: {5:0.00}ms",
+            status, Strength, Smoothness, AssistLevel, Frames, AverageLatency
+        );
         SetConsoleTitle(title);
     }
 
@@ -314,10 +315,10 @@ public class SageXDragAssist {
 }
 "@
 
-# Add the C# type definition
+# Add the C# type definition (Fixed for CMD)
 Add-Type -TypeDefinition $csharpCode -ReferencedAssemblies "System.Drawing"
 
-# Display initial status with enhanced UI
+# Display initial status (Simplified for CMD)
 function Show-ControlPanel {
     param(
         [int]$Strength = 5,
@@ -330,56 +331,56 @@ function Show-ControlPanel {
     
     Clear-Host
     Write-Host "`n"
-    Write-Host "   _____           _   _____               _     _       " -ForegroundColor Cyan
-    Write-Host "  / ____|         | | |  __ \             (_)   | |      " -ForegroundColor Cyan
-    Write-Host " | (___   __ _  __| | | |  | | __ _ ___ ___ _ ___| |_ ___ " -ForegroundColor Cyan
-    Write-Host "  \___ \ / _` |/ _` | | |  | |/ _` / __/ __| / __| __/ __|" -ForegroundColor Cyan
-    Write-Host "  ____) | (_| | (_| | | |__| | (_| \__ \__ \ \__ \ |_\__ \" -ForegroundColor Cyan
-    Write-Host " |_____/ \__,_|\__,_| |_____/ \__,_|___/___/_|___/\__|___/" -ForegroundColor Cyan
+    Write-Host "   _____           _   _____               _     _       "
+    Write-Host "  / ____|         | | |  __ \             (_)   | |      "
+    Write-Host " | (___   __ _  __| | | |  | | __ _ ___ ___ _ ___| |_ ___ "
+    Write-Host "  \___ \ / _` |/ _` | | |  | |/ _` / __/ __| / __| __/ __|"
+    Write-Host "  ____) | (_| | (_| | | |__| | (_| \__ \__ \ \__ \ |_\__ \"
+    Write-Host " |_____/ \__,_|\__,_| |_____/ \__,_|___/___/_|___/\__|___/"
     
-    Write-Host "`n`n               DRAG ASSIST CONTROL PANEL" -ForegroundColor Yellow
-    Write-Host "               -------------------------" -ForegroundColor DarkYellow
+    Write-Host "`n`n               DRAG ASSIST CONTROL PANEL"
+    Write-Host "               -------------------------"
     
     if ($Enabled) { 
-        Write-Host " STATUS:   ACTIVE " -ForegroundColor Green -NoNewline
+        Write-Host " STATUS:   ACTIVE " -NoNewline
     } else { 
-        Write-Host " STATUS:   INACTIVE " -ForegroundColor Red -NoNewline 
+        Write-Host " STATUS:   INACTIVE " -NoNewline 
     }
     
-    Write-Host "`t`t F7: Toggle ON/OFF" -ForegroundColor Cyan
+    Write-Host "`t`t F7: Toggle ON/OFF"
     Write-Host "`n STRENGTH: " -NoNewline
     1..10 | ForEach-Object {
         if ($_ -le $Strength) {
-            Write-Host "■" -ForegroundColor Green -NoNewline
+            Write-Host "■" -NoNewline
         } else {
-            Write-Host "□" -ForegroundColor DarkGray -NoNewline
+            Write-Host "□" -NoNewline
         }
     }
-    Write-Host "`t F4: Increase | F3: Decrease" -ForegroundColor Cyan
+    Write-Host "`t F4: Increase | F3: Decrease"
     
     Write-Host " SMOOTHNESS: " -NoNewline
     1..10 | ForEach-Object {
         if ($_ -le $Smoothness) {
-            Write-Host "■" -ForegroundColor Blue -NoNewline
+            Write-Host "■" -NoNewline
         } else {
-            Write-Host "□" -ForegroundColor DarkGray -NoNewline
+            Write-Host "□" -NoNewline
         }
     }
-    Write-Host "`t F5: Increase | F2: Decrease" -ForegroundColor Cyan
+    Write-Host "`t F5: Increase | F2: Decrease"
     
     Write-Host " ASSIST LEVEL: " -NoNewline
     1..10 | ForEach-Object {
         if ($_ -le $AssistLevel) {
-            Write-Host "■" -ForegroundColor Magenta -NoNewline
+            Write-Host "■" -NoNewline
         } else {
-            Write-Host "□" -ForegroundColor DarkGray -NoNewline
+            Write-Host "□" -NoNewline
         }
     }
-    Write-Host "`t F6: Increase | F1: Decrease" -ForegroundColor Cyan
+    Write-Host "`t F6: Increase | F1: Decrease"
     
-    Write-Host "`n PERFORMANCE:" -ForegroundColor Yellow
-    Write-Host (" FPS: " + $Frames.ToString().PadRight(5) + " LATENCY: " + $AverageLatency.ToString("0.00") + "ms") -ForegroundColor White
-    Write-Host "`n SID: $sid" -ForegroundColor DarkGray
+    Write-Host "`n PERFORMANCE:"
+    Write-Host (" FPS: " + $Frames.ToString().PadRight(5) + " LATENCY: " + $AverageLatency.ToString("0.00") + "ms")
+    Write-Host "`n SID: $sid"
 }
 
 # Start the drag assist in a separate thread
@@ -404,14 +405,13 @@ while ($true) {
         Show-ControlPanel @status
         Start-Sleep -Milliseconds 100
         
-        # Check if thread has completed (shouldn't happen unless error)
         if ($dragAssistThread.InvocationStateInfo.State -ne "Running") {
-            Write-Host "[!] Drag assist thread has stopped unexpectedly!" -ForegroundColor Red
+            Write-Host "[!] Drag assist thread has stopped unexpectedly!"
             break
         }
     }
     catch {
-        Write-Host "[!] UI Update Error: $_" -ForegroundColor DarkYellow
+        Write-Host "[!] UI Update Error: $_"
         Start-Sleep -Seconds 1
     }
 }
