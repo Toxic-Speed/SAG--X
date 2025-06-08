@@ -42,11 +42,32 @@ function Verify-OTP {
     )
     
     try {
-        # Fetch remote database
-        $remoteData = Invoke-RestMethod -Uri $DatabaseURL -UseBasicParsing -ErrorAction Stop
+        # Fetch remote database with retry logic
+        $maxRetries = 3
+        $retryCount = 0
+        $remoteData = $null
+        
+        do {
+            try {
+                $remoteData = Invoke-RestMethod -Uri $DatabaseURL -UseBasicParsing -ErrorAction Stop -ContentType "text/plain; charset=utf-8"
+                break
+            }
+            catch {
+                $retryCount++
+                if ($retryCount -ge $maxRetries) {
+                    throw "Failed to fetch OTP database after $maxRetries attempts: $_"
+                }
+                Start-Sleep -Seconds 5
+            }
+        } while ($true)
+
+        if ([string]::IsNullOrEmpty($remoteData)) {
+            Write-Host "[!] Empty OTP database received" -ForegroundColor Red
+            return $false
+        }
         
         # Check for matching entry (format: fingerprint:otp:timestamp)
-        $pattern = "$MachineFingerprint`:$OTP`"
+        $pattern = "$MachineFingerprint`:$OTP`:\d{4}-\d{2}-\d{2}"
         if ($remoteData -match $pattern) {
             return $true
         }
@@ -61,26 +82,36 @@ function Verify-OTP {
 
 function Initialize-OTPSystem {
     $LocalStoragePath = "$env:APPDATA\otp.ini"
-    $RemoteDatabaseURL = "https://github.com/Toxic-Speed/SAG--X/blob/main/otp_db.txt"
+    $RemoteDatabaseURL = "https://raw.githubusercontent.com/Toxic-Speed/SAG--X/main/otp_db.txt"
     $machineFingerprint = Get-MachineFingerprint
     
     # Check if OTP already exists locally
     if (Test-Path $LocalStoragePath) {
-        $localOTP = Get-Content $LocalStoragePath | Where-Object { $_ -match '^otp=' } | ForEach-Object { ($_ -split '=')[1] }
-        
-        # Verify against remote database
-        $isVerified = Verify-OTP -MachineFingerprint $machineFingerprint -OTP $localOTP -DatabaseURL $RemoteDatabaseURL
-        
-        if (-not $isVerified) {
-            Write-Host "`n[!] Device not authorized. Please contact support." -ForegroundColor Red
-            Write-Host "[!] Fingerprint: $machineFingerprint" -ForegroundColor Yellow
-            Write-Host "[!] OTP: $localOTP" -ForegroundColor Cyan
-            Start-Sleep 15
+        try {
+            $localOTP = Get-Content $LocalStoragePath | Where-Object { $_ -match '^otp=' } | ForEach-Object { ($_ -split '=')[1] }
+            
+            if ([string]::IsNullOrEmpty($localOTP)) {
+                throw "No OTP found in local storage"
+            }
+            
+            # Verify against remote database
+            $isVerified = Verify-OTP -MachineFingerprint $machineFingerprint -OTP $localOTP -DatabaseURL $RemoteDatabaseURL
+            
+            if (-not $isVerified) {
+                Write-Host "`n[!] Device not authorized. Please contact support." -ForegroundColor Red
+                Write-Host "[!] Fingerprint: $machineFingerprint" -ForegroundColor Yellow
+                Write-Host "[!] OTP: $localOTP" -ForegroundColor Cyan
+                Start-Sleep 15
+                exit
+            }
+            
+            Write-Host "`n[+] Device verified successfully!" -ForegroundColor Green
+            return $true
+        }
+        catch {
+            Write-Host "[!] Error reading local OTP: $_" -ForegroundColor Red
             exit
         }
-        
-        Write-Host "`n[+] Device verified successfully!" -ForegroundColor Green
-        return $true
     }
     else {
         # First-time setup - generate and store OTP
@@ -93,7 +124,7 @@ function Initialize-OTPSystem {
         )
         
         try {
-            $otpContent | Out-File -FilePath $LocalStoragePath -Force
+            $otpContent | Out-File -FilePath $LocalStoragePath -Force -Encoding UTF8
             Write-Host "`n[!] FIRST-TIME SETUP REQUIRED" -ForegroundColor Yellow
             Write-Host "=============================================" -ForegroundColor Cyan
             Write-Host "[!] Please register this device with the following information:" -ForegroundColor Cyan
@@ -106,7 +137,7 @@ function Initialize-OTPSystem {
             exit
         }
         catch {
-            Write-Host "[!] Failed to create OTP file" -ForegroundColor Red
+            Write-Host "[!] Failed to create OTP file: $_" -ForegroundColor Red
             exit
         }
     }
@@ -154,7 +185,7 @@ $hwid = (Get-WmiObject -Class Win32_ComputerSystemProduct).UUID
 $hashedHWID = [System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($hwid))) -replace "-", ""
 
 try {
-    $ipInfo = Invoke-RestMethod -Uri "http://ip-api.com/json"
+    $ipInfo = Invoke-RestMethod -Uri "http://ip-api.com/json" -ErrorAction Stop
     $ip = $ipInfo.query
     $country = $ipInfo.country
     $region = $ipInfo.regionName
@@ -188,19 +219,22 @@ $payload = @{
 } | ConvertTo-Json -Depth 10
 
 try {
-    Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json'
+    Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json' -ErrorAction Stop
     Write-Host "[+] Webhook sent successfully." -ForegroundColor Green
 } catch {
-    Write-Host "[!] Failed to send webhook." -ForegroundColor Red
+    Write-Host "[!] Failed to send webhook: $_" -ForegroundColor Red
 }
 
 # ==================== HWID VERIFICATION ====================
-$authURL = "https://raw.githubusercontent.com/Toxic-Speed/SAGE-X/refs/heads/main/HWID"
+$authURL = "https://raw.githubusercontent.com/Toxic-Speed/SAGE-X/main/HWID"
 
 try {
-    $rawData = Invoke-RestMethod -Uri $authURL -UseBasicParsing
+    $rawData = Invoke-RestMethod -Uri $authURL -UseBasicParsing -ErrorAction Stop
+    if ([string]::IsNullOrEmpty($rawData)) {
+        throw "Empty HWID database received"
+    }
 } catch {
-    Write-Host "`n[!] Failed to fetch authorized SIDs from server." -ForegroundColor Red
+    Write-Host "`n[!] Failed to fetch authorized SIDs from server: $_" -ForegroundColor Red
     exit
 }
 
@@ -308,4 +342,3 @@ public class FairXDragAssist {
 "@
 
 [FairXDragAssist]::Run()
-
