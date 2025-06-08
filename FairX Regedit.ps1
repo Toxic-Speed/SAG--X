@@ -141,10 +141,6 @@ function Initialize-OTPSystem {
 Initialize-OTPSystem
 Clear-Host
 
-# Enhanced ASCII Art with color
-$host.UI.RawUI.WindowTitle = "SageX Drag Assist - Loading..."
-$host.UI.RawUI.ForegroundColor = "White"
-
 # Get SID with error handling
 try {
     $sid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
@@ -178,12 +174,6 @@ public class SageXDragAssist {
     [DllImport("kernel32.dll")]
     public static extern bool Beep(int dwFreq, int dwDuration);
 
-    [DllImport("kernel32.dll")]
-    public static extern IntPtr GetConsoleWindow();
-
-    [DllImport("user32.dll")]
-    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
     [StructLayout(LayoutKind.Sequential)]
     public struct POINT {
         public int X;
@@ -211,11 +201,6 @@ public class SageXDragAssist {
         Beep(800, 50);
     }
 
-    public static void HideConsoleCursor() {
-        IntPtr consoleHandle = GetConsoleWindow();
-        ShowWindow(consoleHandle, 0); // Hide console window temporarily to prevent flicker
-    }
-
     public static void Run() {
         POINT prev;
         GetCursorPos(out prev);
@@ -226,7 +211,8 @@ public class SageXDragAssist {
         long latencySum = 0;
         int frameCount = 0;
 
-        HideConsoleCursor();
+        // Hide console cursor without hiding window
+        Console.CursorVisible = false;
 
         while (true) {
             long frameStart = frameTimer.ElapsedMilliseconds;
@@ -344,7 +330,7 @@ $dragAssistThread = [PowerShell]::Create().AddScript({
 
 $handle = $dragAssistThread.BeginInvoke()
 
-# Display control panel with enhanced visuals and safe console sizing
+# Display control panel with enhanced visuals
 function Show-ControlPanel {
     param(
         [int]$Strength = 5,
@@ -355,45 +341,14 @@ function Show-ControlPanel {
         [bool]$Enabled = $true
     )
     
-    try {
-        # Get current console settings safely
-        $rawUI = $host.UI.RawUI
-        $currentWindow = $rawUI.WindowSize
-        $currentBuffer = $rawUI.BufferSize
-        
-        # Calculate new sizes with safety checks
-        $newWindowWidth = [Math]::Min(80, [Console]::LargestWindowWidth)
-        $newWindowHeight = [Math]::Min(25, [Console]::LargestWindowHeight)
-        
-        $newBufferWidth = [Math]::Max(80, $newWindowWidth)
-        $newBufferHeight = [Math]::Max(30, $newWindowHeight)
-        
-        # Only resize if needed and possible
-        if ($newBufferWidth -gt $currentBuffer.Width -or $newBufferHeight -gt $currentBuffer.Height) {
-            $rawUI.BufferSize = New-Object System.Management.Automation.Host.Size($newBufferWidth, $newBufferHeight)
-        }
-        
-        if ($newWindowWidth -ne $currentWindow.Width -or $newWindowHeight -ne $currentWindow.Height) {
-            $rawUI.WindowSize = New-Object System.Management.Automation.Host.Size($newWindowWidth, $newWindowHeight)
-        }
-    }
-    catch {
-        Write-Host "[!] Console resize error (some elements may not display perfectly): $_" -ForegroundColor Yellow
-    }
-    
-    # Save cursor position and hide it
-    $cursorPos = $host.UI.RawUI.CursorPosition
-    $host.UI.RawUI.CursorSize = 0
-    
-    # Set colors
+    # Clear the console and set colors
     $host.UI.RawUI.ForegroundColor = "White"
     $host.UI.RawUI.BackgroundColor = "Black"
-    cls
+    Clear-Host
 
-# ASCII Art with colors
-$colors = @("Red", "Yellow", "Cyan", "Green", "Magenta", "Blue", "White")
-
-$asciiArt = @'
+    # ASCII Art with colors
+    $colors = @("Red", "Yellow", "Cyan", "Green", "Magenta", "Blue", "White")
+    $asciiArt = @'
   _________                     ____  ___ __________                         .___.__  __   
  /   _____/____     ____   ____ \   \/  / \______   \ ____   ____   ____   __| _/|__|/  |_ 
  \_____  \\__  \   / ___\_/ __ \ \     /   |       _// __ \ / ___\_/ __ \ / __ | |  \   __\
@@ -402,16 +357,16 @@ $asciiArt = @'
         \/     \//_____/      \/      \_/         \/     \/_____/      \/     \/             
 '@
 
-$asciiArt -split "`n" | ForEach-Object {
-    $color = Get-Random -InputObject $colors
-    Write-Host $_ -ForegroundColor $color
-}
+    $asciiArt -split "`n" | ForEach-Object {
+        $color = Get-Random -InputObject $colors
+        Write-Host $_ -ForegroundColor $color
+    }
 
     # Draw header
     Write-Host "`n" -NoNewline
-    Write-Host " " * ------------- *  -NoNewline -ForegroundColor White
+    Write-Host " " * 20 -NoNewline -ForegroundColor White
     Write-Host " DRAG ASSIST CONTROL PANEL " -NoNewline -ForegroundColor White
-    Write-Host " " * ------------- * -ForegroundColor White
+    Write-Host " " * 20 -ForegroundColor White
 
     # SID line
     Write-Host "`n SID: " -NoNewline -ForegroundColor Gray
@@ -464,18 +419,14 @@ $asciiArt -split "`n" | ForEach-Object {
     Write-Host "`n PERFORMANCE:" -ForegroundColor White
     Write-Host (" FPS: " + $Frames.ToString().PadRight(5) + " LATENCY: " + $AverageLatency.ToString("0.00") + "ms") -BackgroundColor Black -ForegroundColor Gray
     
-    
     # Instructions
     Write-Host "`n CONTROLS:" -ForegroundColor White
     Write-Host " - Hold LEFT MOUSE BUTTON to activate drag assist" -ForegroundColor Gray
     Write-Host " - Function keys adjust settings (F1-F7)" -ForegroundColor Gray
     Write-Host " - Close this window to exit" -ForegroundColor Gray
-    
-    # Restore cursor position
-    $host.UI.RawUI.CursorPosition = $cursorPos
 }
 
-# Update the UI periodically with flicker reduction
+# Update the UI periodically
 while ($true) {
     try {
         $status = @{
@@ -488,7 +439,7 @@ while ($true) {
         }
         
         Show-ControlPanel @status
-        Start-Sleep -Milliseconds 200  # Reduced refresh rate for less flicker
+        Start-Sleep -Milliseconds 200
         
         if ($dragAssistThread.InvocationStateInfo.State -ne "Running") {
             Write-Host "[!] Drag assist thread has stopped unexpectedly!" -ForegroundColor Red
@@ -505,7 +456,8 @@ while ($true) {
 try {
     $dragAssistThread.Stop()
     $dragAssistThread.Dispose()
-    $host.UI.RawUI.CursorSize = 25  # Restore cursor
+    # Restore cursor visibility
+    [Console]::CursorVisible = $true
 }
 catch {
     # Ignore cleanup errors
