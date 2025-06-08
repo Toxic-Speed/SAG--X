@@ -93,7 +93,7 @@ function Initialize-OTPSystem {
         $RemoteDatabaseURL = "https://raw.githubusercontent.com/Toxic-Speed/SAG--X/main/otp_db.txt"
         $machineFingerprint = Get-MachineFingerprint
         
-        if (Test-Path $LocalStoragePath) {
+        if (Test-Path $LocalStoragePath)) {
             $localOTP = Get-Content $LocalStoragePath | Where-Object { $_ -match '^otp=' } | ForEach-Object { ($_ -split '=')[1] }
             
             if ([string]::IsNullOrEmpty($localOTP)) {
@@ -140,6 +140,17 @@ function Initialize-OTPSystem {
 # ==================== MAIN SCRIPT ====================
 Initialize-OTPSystem
 Clear-Host
+
+# Simplified ASCII Art for CMD
+Write-Host @"
+
+  _________                     ____  ___ __________                         .___.__  __   
+ /   _____/____     ____   ____ \   \/  / \______   \ ____   ____   ____   __| _/|__|/  |_ 
+ \_____  \\__  \   / ___\_/ __ \ \     /   |       _// __ \ / ___\_/ __ \ / __ | |  \   __\
+ /        \/ __ \_/ /_/  >  ___/ /     \   |    |   \  ___// /_/  >  ___// /_/ | |  ||  |  
+/_______  (____  /\___  / \___  >___/\  \  |____|_  /\___  >___  / \___  >____ | |__||__|  
+        \/     \//_____/      \/      \_/         \/     \/_____/      \/     \/             
+"@
 
 # Get SID with error handling
 try {
@@ -327,9 +338,7 @@ $dragAssistThread = [PowerShell]::Create().AddScript({
 
 $handle = $dragAssistThread.BeginInvoke()
 
-# ==================== FLICKER-FREE CONTROL PANEL ====================
-$script:lastDisplayState = $null
-
+# ==================== IMPROVED CONTROL PANEL ====================
 function Show-ControlPanel {
     param(
         [int]$Strength = 5,
@@ -340,92 +349,54 @@ function Show-ControlPanel {
         [bool]$Enabled = $true
     )
 
-    # Only redraw if values changed
-    $currentState = @{
-        Enabled = $Enabled
-        Strength = $Strength
-        Smoothness = $Smoothness
-        AssistLevel = $AssistLevel
-        Frames = $Frames
-        AverageLatency = $AverageLatency
-    }
+    # Clear only the dynamic portion of the display (lines 8-20)
+    $cursorTop = [Console]::CursorTop
+    if ($cursorTop -lt 8) { $cursorTop = 8 }
+    
+    # Save current cursor position
+    $originalX = [Console]::CursorLeft
+    $originalY = [Console]::CursorTop
+    
+    # Position cursor at start of dynamic content
+    [Console]::SetCursorPosition(0, 8)
+    
+    # Redraw dynamic content
+    $statusText = " STATUS:   " + ($Enabled ? "ACTIVE  " : "INACTIVE") + "`t`t F7: Toggle ON/OFF"
+    $strengthText = "`n STRENGTH:  " + ("■" * $Strength) + ("□" * (10 - $Strength)) + "`t F4: Increase | F3: Decrease"
+    $smoothnessText = "`n SMOOTHNESS: " + ("■" * $Smoothness) + ("□" * (10 - $Smoothness)) + "`t F5: Increase | F2: Decrease"
+    $assistText = "`n ASSIST LEVEL:" + ("■" * $AssistLevel) + ("□" * (10 - $AssistLevel)) + "`t F6: Increase | F1: Decrease"
+    $perfText = "`n`n PERFORMANCE:`n FPS: " + $Frames.ToString().PadRight(5) + " LATENCY: " + $AverageLatency.ToString("0.00") + "ms"
+    
+    # Write all dynamic content at once
+    Write-Host ($statusText + $strengthText + $smoothnessText + $assistText + $perfText)
+    
+    # Restore cursor position
+    [Console]::SetCursorPosition($originalX, $originalY)
+}
 
-    if ($null -eq $script:lastDisplayState -or (Compare-Object $script:lastDisplayState.GetEnumerator() $currentState.GetEnumerator())) {
-        # Move cursor to top instead of Clear-Host
-        $Host.UI.RawUI.CursorPosition = New-Object System.Management.Automation.Host.Coordinates 0,0
+# ==================== MAIN UI LOOP ====================
+try {
+    # Initial full draw
+    Write-Host @"
 
-        Write-Host @"
-
-# ASCII Art with colors
-$colors = @("Red", "Yellow", "Cyan", "Green", "Magenta", "Blue", "White")
-
-$asciiArt = @'
   _________                     ____  ___ __________                         .___.__  __   
  /   _____/____     ____   ____ \   \/  / \______   \ ____   ____   ____   __| _/|__|/  |_ 
  \_____  \\__  \   / ___\_/ __ \ \     /   |       _// __ \ / ___\_/ __ \ / __ | |  \   __\
  /        \/ __ \_/ /_/  >  ___/ /     \   |    |   \  ___// /_/  >  ___// /_/ | |  ||  |  
 /_______  (____  /\___  / \___  >___/\  \  |____|_  /\___  >___  / \___  >____ | |__||__|  
-        \/     \//_____/      \/      \_/         \/     \/_____/      \/     \/             
-'@
-
-$asciiArt -split "`n" | ForEach-Object {
-    $color = Get-Random -InputObject $colors
-    Write-Host $_ -ForegroundColor $color
-}
+        \/     \//_____/      \/      \_/         \/     \/_____/      \/     \/            
 
                DRAG ASSIST CONTROL PANEL
                -------------------------
 "@
 
-        # Status line (dynamic)
-        Write-Host " STATUS:   " -NoNewline
-        if ($Enabled) { Write-Host "ACTIVE  " -NoNewline -ForegroundColor Green }
-        else { Write-Host "INACTIVE" -NoNewline -ForegroundColor Red }
-        Write-Host "`t`t F7: Toggle ON/OFF"
+    Write-Host " SID: $sid"
+    Write-Host "`n CONTROLS:"
+    Write-Host " - Hold LEFT MOUSE BUTTON to activate drag assist"
+    Write-Host " - Function keys adjust settings (F1-F7)"
+    Write-Host " - Close this window to exit`n"
 
-        # Strength line (dynamic)
-        Write-Host "`n STRENGTH:  " -NoNewline
-        1..10 | ForEach-Object {
-            if ($_ -le $Strength) { Write-Host "■" -NoNewline -ForegroundColor Cyan }
-            else { Write-Host "□" -NoNewline -ForegroundColor DarkGray }
-        }
-        Write-Host "`t F4: Increase | F3: Decrease"
-
-        # Smoothness line (dynamic)
-        Write-Host "`n SMOOTHNESS: " -NoNewline
-        1..10 | ForEach-Object {
-            if ($_ -le $Smoothness) { Write-Host "■" -NoNewline -ForegroundColor Cyan }
-            else { Write-Host "□" -NoNewline -ForegroundColor DarkGray }
-        }
-        Write-Host "`t F5: Increase | F2: Decrease"
-
-        # Assist Level line (dynamic)
-        Write-Host "`n ASSIST LEVEL:" -NoNewline
-        1..10 | ForEach-Object {
-            if ($_ -le $AssistLevel) { Write-Host "■" -NoNewline -ForegroundColor Cyan }
-            else { Write-Host "□" -NoNewline -ForegroundColor DarkGray }
-        }
-        Write-Host "`t F6: Increase | F1: Decrease"
-
-        # Performance line (dynamic)
-        Write-Host "`n`n PERFORMANCE:"
-        Write-Host (" FPS: " + $Frames.ToString().PadRight(5) + " LATENCY: " + $AverageLatency.ToString("0.00") + "ms")
-
-        # Static elements (don't change)
-        if ($null -eq $script:lastDisplayState) {
-            Write-Host "`n SID: $sid"
-            Write-Host "`n CONTROLS:"
-            Write-Host " - Hold LEFT MOUSE BUTTON to activate drag assist"
-            Write-Host " - Function keys adjust settings (F1-F7)"
-            Write-Host " - Close this window to exit"
-        }
-
-        $script:lastDisplayState = $currentState
-    }
-}
-
-# ==================== MAIN UI LOOP ====================
-try {
+    # Continuous updates
     while ($true) {
         $status = @{
             Enabled = [SageXDragAssist]::Enabled
@@ -437,7 +408,7 @@ try {
         }
         
         Show-ControlPanel @status
-        Start-Sleep -Milliseconds 250  # Smoother than 100ms
+        Start-Sleep -Milliseconds 100
         
         if ($dragAssistThread.InvocationStateInfo.State -ne "Running") {
             Write-Host "[!] Drag assist thread has stopped unexpectedly!"
