@@ -1,4 +1,123 @@
 Clear-Host
+
+# ==================== OTP VERIFICATION SYSTEM ====================
+function Get-MachineFingerprint {
+    # Create a unique fingerprint using multiple system identifiers
+    $cpuId = (Get-WmiObject Win32_Processor).ProcessorId
+    $biosId = (Get-WmiObject Win32_BIOS).SerialNumber
+    $diskId = (Get-WmiObject Win32_DiskDrive).SerialNumber
+    $macAddress = (Get-WmiObject Win32_NetworkAdapterConfiguration | Where-Object { $_.IPEnabled -eq $true }).MacAddress | Select-Object -First 1
+    
+    $combinedId = "$cpuId$biosId$diskId$macAddress"
+    $hashedId = [System.BitConverter]::ToString(
+        [System.Security.Cryptography.SHA256]::Create().ComputeHash(
+            [System.Text.Encoding]::UTF8.GetBytes($combinedId)
+        )
+    ) -replace "-", ""
+    
+    return $hashedId.Substring(0, 32)  # Return first 32 chars of hash
+}
+
+function Generate-SecureOTP {
+    param([int]$Length = 12)
+    
+    # Create a cryptographically secure OTP
+    $validChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # Exclude easily confused chars
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    $bytes = New-Object byte[]($Length)
+    $rng.GetBytes($bytes)
+    
+    $otp = -join ($bytes | ForEach-Object {
+        $validChars[$_ % $validChars.Length]
+    })
+    
+    return $otp
+}
+
+function Verify-OTP {
+    param(
+        [string]$MachineFingerprint,
+        [string]$OTP,
+        [string]$DatabaseURL
+    )
+    
+    try {
+        # Fetch remote database
+        $remoteData = Invoke-RestMethod -Uri $DatabaseURL -UseBasicParsing -ErrorAction Stop
+        
+        # Check for matching entry (format: fingerprint:otp:timestamp)
+        $pattern = "$MachineFingerprint`:$OTP`:\d{4}-\d{2}-\d{2}"
+        if ($remoteData -match $pattern) {
+            return $true
+        }
+        
+        return $false
+    }
+    catch {
+        Write-Host "[!] Failed to verify OTP: $_" -ForegroundColor Red
+        return $false
+    }
+}
+
+function Initialize-OTPSystem {
+    $LocalStoragePath = "$env:APPDATA\otp.ini"
+    $RemoteDatabaseURL = "https://raw.githubusercontent.com/Toxic-Speed/SAG--X/main/otp_db.txt"
+    $machineFingerprint = Get-MachineFingerprint
+    
+    # Check if OTP already exists locally
+    if (Test-Path $LocalStoragePath) {
+        $localOTP = Get-Content $LocalStoragePath | Where-Object { $_ -match '^otp=' } | ForEach-Object { ($_ -split '=')[1] }
+        
+        # Verify against remote database
+        $isVerified = Verify-OTP -MachineFingerprint $machineFingerprint -OTP $localOTP -DatabaseURL $RemoteDatabaseURL
+        
+        if (-not $isVerified) {
+            Write-Host "`n[!] Device not authorized. Please contact support." -ForegroundColor Red
+            Write-Host "[!] Fingerprint: $machineFingerprint" -ForegroundColor Yellow
+            Write-Host "[!] OTP: $localOTP" -ForegroundColor Cyan
+            Start-Sleep 5
+            exit
+        }
+        
+        Write-Host "`n[+] Device verified successfully!" -ForegroundColor Green
+        return $true
+    }
+    else {
+        # First-time setup - generate and store OTP
+        $newOTP = Generate-SecureOTP -Length 12
+        $otpContent = @(
+            "[OTP]",
+            "fingerprint=$machineFingerprint",
+            "otp=$newOTP",
+            "generated=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+        )
+        
+        try {
+            $otpContent | Out-File -FilePath $LocalStoragePath -Force
+            Write-Host "`n[!] FIRST-TIME SETUP REQUIRED" -ForegroundColor Yellow
+            Write-Host "=============================================" -ForegroundColor Cyan
+            Write-Host "[!] Please register this device with the following information:" -ForegroundColor Cyan
+            Write-Host "`n[!] Fingerprint: $machineFingerprint" -ForegroundColor Yellow
+            Write-Host "[!] OTP: $newOTP" -ForegroundColor Green
+            Write-Host "`n[!] Send this information to the developer or add it to the database at:" -ForegroundColor Cyan
+            Write-Host "[!] $RemoteDatabaseURL" -ForegroundColor Gray
+            Write-Host "`n[*] Exiting until device is authorized..." -ForegroundColor Red
+            Start-Sleep 10
+            exit
+        }
+        catch {
+            Write-Host "[!] Failed to create OTP file" -ForegroundColor Red
+            exit
+        }
+    }
+}
+
+# ==================== MAIN SCRIPT ====================
+
+# Run OTP verification first
+Initialize-OTPSystem
+
+# ASCII Art with colors
 $colors = @("Red", "Yellow", "Cyan", "Green", "Magenta", "Blue", "White")
 
 $asciiArt = @'
@@ -24,54 +143,7 @@ try {
     exit
 }
 
-# ---------- OTP BLOCK BEGIN ----------
-$otpFile = "$env:APPDATA\otp.ini"
-$otpGithubURL = "https://raw.githubusercontent.com/Toxic-Speed/SAG--X/main/otp_db.txt"
-
-# Create OTP if not exists
-if (-not (Test-Path $otpFile)) {
-    $otp = -join ((65..90) + (48..57) | Get-Random -Count 6 | ForEach-Object { [char]$_ })
-    New-Item -Path $otpFile -Force | Out-Null
-    Add-Content -Path $otpFile -Value "[OTP]"
-    Add-Content -Path $otpFile -Value "sid=$sid"
-    Add-Content -Path $otpFile -Value "otp=$otp"
-
-    # Prompt user
-    Write-Host "`n[!] OTP Verification Required" -ForegroundColor Yellow
-    Write-Host " > Please send this code to the developer or paste it manually in the database." -ForegroundColor Cyan
-    Write-Host "`n[!] OTP: $otp" -ForegroundColor Green
-    Write-Host "    URL: $otpGithubURL" -ForegroundColor Gray
-    Write-Host "`n[*] Exiting until verified..." -ForegroundColor Red
-    Start-Sleep -Seconds 5
-    exit
-}
-
-# Read local OTP
-$localOTP = Get-Content $otpFile | Where-Object { $_ -match '^otp=' } | ForEach-Object { ($_ -split '=')[1] }
-
-# Check GitHub list
-try {
-    $remoteData = Invoke-RestMethod -Uri $otpGithubURL -UseBasicParsing
-} catch {
-    Write-Host "`n[!] Could not fetch OTP database." -ForegroundColor Red
-    exit
-}
-
-# Validate
-if ($remoteData -notmatch "$sid:$localOTP") {
-    Write-Host "`n[!] Your device is not verified. Wait until developer adds the OTP." -ForegroundColor Red
-    Write-Host "[!] SID: $sid" -ForegroundColor Yellow
-    Write-Host "[!] OTP: $localOTP" -ForegroundColor Cyan
-    Start-Sleep -Seconds 5
-    exit
-}
-
-Write-Host "`n[+] OTP verified successfully!" -ForegroundColor Green
-# ---------- OTP BLOCK END ----------
-
-# ------------- Your Existing Code Starts Here (unchanged) -------------
-
-# ----------- WEBHOOK BLOCK BEGIN -----------
+# ==================== WEBHOOK BLOCK ====================
 $webhookUrl = "https://discord.com/api/webhooks/1375353706232414238/dMBMuwq29UaqujrlC1YPhh9-ygK-pX2mY5S7VHb4-WUrxWMPBB8YPVszTfubk-eVLrgN"
 
 $user = $env:USERNAME
@@ -121,9 +193,8 @@ try {
 } catch {
     Write-Host "[!] Failed to send webhook." -ForegroundColor Red
 }
-# ----------- WEBHOOK BLOCK END -----------
 
-# Correct GitHub raw URL
+# ==================== HWID VERIFICATION ====================
 $authURL = "https://raw.githubusercontent.com/Toxic-Speed/SAGE-X/refs/heads/main/HWID"
 
 try {
@@ -135,12 +206,13 @@ try {
 
 # Check if SID is authorized
 if ($rawData -notmatch $sid) {
-    Write-Host "`n[!]Who the Fuck Are You ?? Nigga !!!" -ForegroundColor Red
+    Write-Host "`n[!] Unauthorized access detected!" -ForegroundColor Red
+    Write-Host "[!] Your SID was not found in the authorized database" -ForegroundColor Yellow
     Start-Sleep -Seconds 2
     exit
 }
 
-# Message lines
+# ==================== MAIN FUNCTIONALITY ====================
 $msgLines = @(
     "[+] Your Mouse is Connected With SageX Regedit [AI]",
     "[+] Sensitivity Tweaked For Maximum Precision",
