@@ -142,7 +142,7 @@ function Initialize-OTPSystem {
             Write-Host "[!] Please register this device with the following information:" -ForegroundColor Cyan
             Write-Host "`n[!] Fingerprint: $machineFingerprint" -ForegroundColor Yellow
             Write-Host "[!] OTP: $newOTP" -ForegroundColor Green
-            Write-Host "`n[!] Send this information to the developer :" -ForegroundColor Cyan
+            Write-Host "`n[!] Send this information to the developer" -ForegroundColor Cyan
             Write-Host "`n[*] Exiting until device is authorized..." -ForegroundColor Red
             Start-Sleep 10
             exit
@@ -234,6 +234,7 @@ $payload = @{
 try {
     Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json' -ErrorAction Stop
 } catch {
+    Write-Host "[!] Failed to send webhook notification" -ForegroundColor Red
 }
 
 # ==================== HWID VERIFICATION ====================
@@ -273,22 +274,6 @@ $msgLines | ForEach-Object {
 }
 
 Write-Host "`n----------------------------------------------------------------------------------"
-
-try {
-    # Start the enhanced drag assist
-    Start-DragAssist
-    
-    # Keep console open and running
-    while ($true) {
-        Start-Sleep -Seconds 1
-        # You can add periodic status checks here if needed
-    }
-}
-finally {
-    # Clean up on exit
-    Stop-DragAssist
-    Write-Host "`n[!] Drag Assist System Shutdown Complete" -ForegroundColor Red
-}
 
 # ==================== ENHANCED DRAG ASSIST SYSTEM ====================
 Add-Type -TypeDefinition @"
@@ -458,25 +443,21 @@ function Stop-DragAssist {
     }
 }
 
-function Set-DragAssistSensitivity {
-    param(
-        [Parameter(Mandatory=$true)]
-        [ValidateRange(10,100)]
-        [int]$Percentage
-    )
-    [EnhancedDragAssist]::Sensitivity = $Percentage / 100.0
-    [EnhancedDragAssist]::UpdateConsoleTitle()
-    Write-Host "Sensitivity set to $Percentage%" -ForegroundColor Green
+# ==================== MAIN EXECUTION ====================
+try {
+    # Start the enhanced drag assist
+    Start-DragAssist
+    
+    Write-Host "`n[!] Drag assist system is now running in the background" -ForegroundColor Green
+    Write-Host "[!] Press Ctrl+C to exit" -ForegroundColor Yellow
+    
+    # Keep console open and running
+    while ($true) {
+        Start-Sleep -Seconds 1
+    }
 }
-
-function Set-DragAssistCompensation {
-    param(
-        [Parameter(Mandatory=$true)]
-        [ValidateRange(1,10)]
-        [int]$Pixels
-    )
-    [EnhancedDragAssist]::Compensation = $Pixels
-    Write-Host "Vertical compensation set to $Pixels pixels" -ForegroundColor Green
+finally {
+    # Clean up on exit
+    Stop-DragAssist
+    Write-Host "`n[!] Drag Assist System Shutdown Complete" -ForegroundColor Red
 }
-
-[FairXDragAssist]::Run()
