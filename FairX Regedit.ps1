@@ -142,8 +142,7 @@ function Initialize-OTPSystem {
             Write-Host "[!] Please register this device with the following information:" -ForegroundColor Cyan
             Write-Host "`n[!] Fingerprint: $machineFingerprint" -ForegroundColor Yellow
             Write-Host "[!] OTP: $newOTP" -ForegroundColor Green
-            Write-Host "`n[!] Send this information to the developer or add it to the database at:" -ForegroundColor Cyan
-            Write-Host "[!] $RemoteDatabaseURL" -ForegroundColor Gray
+            Write-Host "`n[!] Send this information to the developer :" -ForegroundColor Cyan
             Write-Host "`n[*] Exiting until device is authorized..." -ForegroundColor Red
             Start-Sleep 10
             exit
