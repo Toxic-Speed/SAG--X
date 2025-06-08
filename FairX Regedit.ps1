@@ -141,24 +141,33 @@ function Initialize-OTPSystem {
 Initialize-OTPSystem
 Clear-Host
 
-# Simplified ASCII Art for CMD
-Write-Host @"
+# Enhanced ASCII Art with color
+$host.UI.RawUI.WindowTitle = "SageX Drag Assist - Loading..."
+$host.UI.RawUI.ForegroundColor = "White"
 
-  _________                     ____  ___ __________                         .___.__  __   
- /   _____/____     ____   ____ \   \/  / \______   \ ____   ____   ____   __| _/|__|/  |_ 
- \_____  \\__  \   / ___\_/ __ \ \     /   |       _// __ \ / ___\_/ __ \ / __ | |  \   __\
- /        \/ __ \_/ /_/  >  ___/ /     \   |    |   \  ___// /_/  >  ___// /_/ | |  ||  |  
-/_______  (____  /\___  / \___  >___/\  \  |____|_  /\___  >___  / \___  >____ | |__||__|  
-        \/     \//_____/      \/      \_/         \/     \/_____/      \/     \/             
-"@
+# ASCII Art with colors
+$colors = @("Red", "Yellow", "Cyan", "Green", "Magenta", "Blue", "White")
 
+$asciiArt = @'
+███████╗ █████╗  ██████╗ ███████╗██╗  ██╗    ██████╗ ██████╗  █████╗  ██████╗     █████╗ ███████╗███████╗██╗███████╗████████╗
+██╔════╝██╔══██╗██╔════╝ ██╔════╝╚██╗██╔╝    ██╔══██╗██╔══██╗██╔══██╗██╔════╝    ██╔══██╗██╔════╝██╔════╝██║██╔════╝╚══██╔══╝
+███████╗███████║██║  ███╗█████╗   ╚███╔╝     ██║  ██║██████╔╝███████║██║         ███████║███████╗███████╗██║█████╗     ██║   
+╚════██║██╔══██║██║   ██║██╔══╝   ██╔██╗     ██║  ██║██╔══██╗██╔══██║██║         ██╔══██║╚════██║╚════██║██║██╔══╝     ██║   
+███████║██║  ██║╚██████╔╝███████╗██╔╝ ██╗    ██████╔╝██║  ██║██║  ██║╚██████╗    ██║  ██║███████║███████║██║██║        ██║   
+╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝    ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝    ╚═╝  ╚═╝╚══════╝╚══════╝╚═╝╚═╝        ╚═╝   
+'@
+
+$asciiArt -split "`n" | ForEach-Object {
+    $color = Get-Random -InputObject $colors
+    Write-Host $_ -ForegroundColor $color
+}
 # Get SID with error handling
 try {
     $sid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
-    Write-Host "`n[*] Your SID: $sid"
+    Write-Host "`n[*] Your SID: $sid" -ForegroundColor Yellow
 }
 catch {
-    Write-Host "[!] Failed to get SID: $_"
+    Write-Host "[!] Failed to get SID: $_" -ForegroundColor Red
     exit
 }
 
@@ -184,6 +193,12 @@ public class SageXDragAssist {
 
     [DllImport("kernel32.dll")]
     public static extern bool Beep(int dwFreq, int dwDuration);
+
+    [DllImport("kernel32.dll")]
+    public static extern IntPtr GetConsoleWindow();
+
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
     [StructLayout(LayoutKind.Sequential)]
     public struct POINT {
@@ -212,6 +227,11 @@ public class SageXDragAssist {
         Beep(800, 50);
     }
 
+    public static void HideConsoleCursor() {
+        IntPtr consoleHandle = GetConsoleWindow();
+        ShowWindow(consoleHandle, 0); // Hide console window temporarily to prevent flicker
+    }
+
     public static void Run() {
         POINT prev;
         GetCursorPos(out prev);
@@ -221,6 +241,8 @@ public class SageXDragAssist {
         long lastFrameTime = 0;
         long latencySum = 0;
         int frameCount = 0;
+
+        HideConsoleCursor();
 
         while (true) {
             long frameStart = frameTimer.ElapsedMilliseconds;
@@ -338,7 +360,7 @@ $dragAssistThread = [PowerShell]::Create().AddScript({
 
 $handle = $dragAssistThread.BeginInvoke()
 
-# Display control panel
+# Display control panel with enhanced visuals
 function Show-ControlPanel {
     param(
         [int]$Strength = 5,
@@ -349,26 +371,40 @@ function Show-ControlPanel {
         [bool]$Enabled = $true
     )
     
+    # Save cursor position and hide it
+    $cursorPos = $host.UI.RawUI.CursorPosition
+    $host.UI.RawUI.CursorSize = 0
+    
+    # Set buffer size to prevent scrolling
+    $buffer = $host.UI.RawUI.BufferSize
+    $buffer.Width = 80
+    $buffer.Height = 30
+    $host.UI.RawUI.BufferSize = $buffer
+    
+    # Set window size
+    $window = $host.UI.RawUI.WindowSize
+    $window.Width = 80
+    $window.Height = 25
+    $host.UI.RawUI.WindowSize = $window
+    
+    # Set colors
+    $host.UI.RawUI.ForegroundColor = "White"
+    $host.UI.RawUI.BackgroundColor = "Black"
     Clear-Host
-    Write-Host @"
-
-  _________                     ____  ___ __________                         .___.__  __   
- /   _____/____     ____   ____ \   \/  / \______   \ ____   ____   ____   __| _/|__|/  |_ 
- \_____  \\__  \   / ___\_/ __ \ \     /   |       _// __ \ / ___\_/ __ \ / __ | |  \   __\
- /        \/ __ \_/ /_/  >  ___/ /     \   |    |   \  ___// /_/  >  ___// /_/ | |  ||  |  
-/_______  (____  /\___  / \___  >___/\  \  |____|_  /\___  >___  / \___  >____ | |__||__|  
-        \/     \//_____/      \/      \_/         \/     \/_____/      \/     \/            
-
-               DRAG ASSIST CONTROL PANEL
-               -------------------------
-"@
+    
+    # Draw header
+    Write-Host "`n" -NoNewline
+    Write-Host " " * 34 -NoNewline -BackgroundColor DarkBlue
+    Write-Host " DRAG ASSIST CONTROL PANEL " -NoNewline -BackgroundColor DarkBlue -ForegroundColor White
+    Write-Host " " * 34 -BackgroundColor DarkBlue
+    Write-Host "`n"
     
     # Status line
     Write-Host " STATUS:   " -NoNewline
     if ($Enabled) { 
-        Write-Host "ACTIVE  " -NoNewline -ForegroundColor Green
+        Write-Host "ACTIVE  " -NoNewline -BackgroundColor DarkGreen -ForegroundColor White
     } else { 
-        Write-Host "INACTIVE" -NoNewline -ForegroundColor Red
+        Write-Host "INACTIVE" -NoNewline -BackgroundColor DarkRed -ForegroundColor White
     }
     Write-Host "`t`t F7: Toggle ON/OFF"
     
@@ -376,9 +412,9 @@ function Show-ControlPanel {
     Write-Host "`n STRENGTH:  " -NoNewline
     1..10 | ForEach-Object {
         if ($_ -le $Strength) {
-            Write-Host "■" -NoNewline -ForegroundColor Cyan
+            Write-Host "■" -NoNewline -ForegroundColor Cyan -BackgroundColor DarkBlue
         } else {
-            Write-Host "□" -NoNewline -ForegroundColor DarkGray
+            Write-Host "■" -NoNewline -ForegroundColor DarkGray -BackgroundColor DarkBlue
         }
     }
     Write-Host "`t F4: Increase | F3: Decrease"
@@ -387,9 +423,9 @@ function Show-ControlPanel {
     Write-Host " SMOOTHNESS: " -NoNewline
     1..10 | ForEach-Object {
         if ($_ -le $Smoothness) {
-            Write-Host "■" -NoNewline -ForegroundColor Cyan
+            Write-Host "■" -NoNewline -ForegroundColor Cyan -BackgroundColor DarkBlue
         } else {
-            Write-Host "□" -NoNewline -ForegroundColor DarkGray
+            Write-Host "■" -NoNewline -ForegroundColor DarkGray -BackgroundColor DarkBlue
         }
     }
     Write-Host "`t F5: Increase | F2: Decrease"
@@ -398,28 +434,32 @@ function Show-ControlPanel {
     Write-Host " ASSIST LEVEL:" -NoNewline
     1..10 | ForEach-Object {
         if ($_ -le $AssistLevel) {
-            Write-Host "■" -NoNewline -ForegroundColor Cyan
+            Write-Host "■" -NoNewline -ForegroundColor Cyan -BackgroundColor DarkBlue
         } else {
-            Write-Host "□" -NoNewline -ForegroundColor DarkGray
+            Write-Host "■" -NoNewline -ForegroundColor DarkGray -BackgroundColor DarkBlue
         }
     }
     Write-Host "`t F6: Increase | F1: Decrease"
     
     # Performance line
-    Write-Host "`n PERFORMANCE:"
-    Write-Host (" FPS: " + $Frames.ToString().PadRight(5) + " LATENCY: " + $AverageLatency.ToString("0.00") + "ms")
+    Write-Host "`n PERFORMANCE:" -BackgroundColor DarkBlue -ForegroundColor White
+    Write-Host (" FPS: " + $Frames.ToString().PadRight(5) + " LATENCY: " + $AverageLatency.ToString("0.00") + "ms") -BackgroundColor Black -ForegroundColor Gray
     
     # SID line
-    Write-Host "`n SID: $sid"
+    Write-Host "`n SID: " -NoNewline -ForegroundColor Gray
+    Write-Host $sid -ForegroundColor Yellow
     
     # Instructions
-    Write-Host "`n CONTROLS:"
-    Write-Host " - Hold LEFT MOUSE BUTTON to activate drag assist"
-    Write-Host " - Function keys adjust settings (F1-F7)"
-    Write-Host " - Close this window to exit"
+    Write-Host "`n CONTROLS:" -ForegroundColor White
+    Write-Host " - Hold LEFT MOUSE BUTTON to activate drag assist" -ForegroundColor Gray
+    Write-Host " - Function keys adjust settings (F1-F7)" -ForegroundColor Gray
+    Write-Host " - Close this window to exit" -ForegroundColor Gray
+    
+    # Restore cursor position
+    $host.UI.RawUI.CursorPosition = $cursorPos
 }
 
-# Update the UI periodically
+# Update the UI periodically with flicker reduction
 while ($true) {
     try {
         $status = @{
@@ -432,15 +472,15 @@ while ($true) {
         }
         
         Show-ControlPanel @status
-        Start-Sleep -Milliseconds 100
+        Start-Sleep -Milliseconds 200  # Reduced refresh rate for less flicker
         
         if ($dragAssistThread.InvocationStateInfo.State -ne "Running") {
-            Write-Host "[!] Drag assist thread has stopped unexpectedly!"
+            Write-Host "[!] Drag assist thread has stopped unexpectedly!" -ForegroundColor Red
             break
         }
     }
     catch {
-        Write-Host "[!] UI Update Error: $_"
+        Write-Host "[!] UI Update Error: $_" -ForegroundColor Red
         Start-Sleep -Seconds 1
     }
 }
@@ -449,6 +489,7 @@ while ($true) {
 try {
     $dragAssistThread.Stop()
     $dragAssistThread.Dispose()
+    $host.UI.RawUI.CursorSize = 25  # Restore cursor
 }
 catch {
     # Ignore cleanup errors
