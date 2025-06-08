@@ -417,9 +417,9 @@ $asciiArt -split "`n" | ForEach-Object {
     # Status line
     Write-Host " STATUS:   " -NoNewline
     if ($Enabled) { 
-        Write-Host "ACTIVE  " -NoNewline -BackgroundColor DarkGreen -ForegroundColor White
+        Write-Host "ACTIVE  " -NoNewline -ForegroundColor White
     } else { 
-        Write-Host "INACTIVE" -NoNewline -BackgroundColor DarkRed -ForegroundColor White
+        Write-Host "INACTIVE" -NoNewline -ForegroundColor White
     }
     Write-Host "`t`t F7: Toggle ON/OFF"
     
