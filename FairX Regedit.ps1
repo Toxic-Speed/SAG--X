@@ -75,7 +75,7 @@ function Initialize-OTPSystem {
             Write-Host "`n[!] Device not authorized. Please contact support." -ForegroundColor Red
             Write-Host "[!] Fingerprint: $machineFingerprint" -ForegroundColor Yellow
             Write-Host "[!] OTP: $localOTP" -ForegroundColor Cyan
-            Start-Sleep 5
+            Start-Sleep 15
             exit
         }
         
