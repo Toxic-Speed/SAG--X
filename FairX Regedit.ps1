@@ -145,23 +145,6 @@ Clear-Host
 $host.UI.RawUI.WindowTitle = "SageX Drag Assist - Loading..."
 $host.UI.RawUI.ForegroundColor = "White"
 
-# ASCII Art with colors
-$colors = @("Red", "Yellow", "Cyan", "Green", "Magenta", "Blue", "White")
-
-$asciiArt = @'
-  _________                     ____  ___ __________                         .___.__  __   
- /   _____/____     ____   ____ \   \/  / \______   \ ____   ____   ____   __| _/|__|/  |_ 
- \_____  \\__  \   / ___\_/ __ \ \     /   |       _// __ \ / ___\_/ __ \ / __ | |  \   __\
- /        \/ __ \_/ /_/  >  ___/ /     \   |    |   \  ___// /_/  >  ___// /_/ | |  ||  |  
-/_______  (____  /\___  / \___  >___/\  \  |____|_  /\___  >___  / \___  >____ | |__||__|  
-        \/     \//_____/      \/      \_/         \/     \/_____/      \/     \/             
-'@
-
-$asciiArt -split "`n" | ForEach-Object {
-    $color = Get-Random -InputObject $colors
-    Write-Host $_ -ForegroundColor $color
-}
-
 # Get SID with error handling
 try {
     $sid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
@@ -405,7 +388,25 @@ function Show-ControlPanel {
     # Set colors
     $host.UI.RawUI.ForegroundColor = "White"
     $host.UI.RawUI.BackgroundColor = "Black"
-    
+    cls
+
+# ASCII Art with colors
+$colors = @("Red", "Yellow", "Cyan", "Green", "Magenta", "Blue", "White")
+
+$asciiArt = @'
+  _________                     ____  ___ __________                         .___.__  __   
+ /   _____/____     ____   ____ \   \/  / \______   \ ____   ____   ____   __| _/|__|/  |_ 
+ \_____  \\__  \   / ___\_/ __ \ \     /   |       _// __ \ / ___\_/ __ \ / __ | |  \   __\
+ /        \/ __ \_/ /_/  >  ___/ /     \   |    |   \  ___// /_/  >  ___// /_/ | |  ||  |  
+/_______  (____  /\___  / \___  >___/\  \  |____|_  /\___  >___  / \___  >____ | |__||__|  
+        \/     \//_____/      \/      \_/         \/     \/_____/      \/     \/             
+'@
+
+$asciiArt -split "`n" | ForEach-Object {
+    $color = Get-Random -InputObject $colors
+    Write-Host $_ -ForegroundColor $color
+}
+
     # Draw header
     Write-Host "`n" -NoNewline
     Write-Host " " * -------------  -NoNewline -BackgroundColor DarkBlue
