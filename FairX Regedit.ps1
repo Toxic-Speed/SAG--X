@@ -490,11 +490,11 @@ function Show-ControlPanel {
     )
     $msgLines | ForEach-Object {
     Write-Host $_ -ForegroundColor Red
-    Start-Sleep -Milliseconds 300
     }
 
     
     # Status line
+    Write-Host "`n"
     Write-Host " STATUS:   " -NoNewline
     if ($Enabled) { 
         Write-Host "ACTIVE  " -NoNewline -ForegroundColor White
