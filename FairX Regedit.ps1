@@ -55,7 +55,8 @@ function Verify-OTP {
             catch {
                 $retryCount++
                 if ($retryCount -ge $maxRetries) {
-                    throw "Failed to fetch OTP database after $maxRetries attempts: $_"
+                    Write-Host "[!] Failed to fetch OTP database after $maxRetries attempts: $_" -ForegroundColor Red
+                    return $false
                 }
                 Start-Sleep -Seconds 5
             }
@@ -89,7 +90,9 @@ function Initialize-OTPSystem {
         }
         catch {
             Write-Host "[!] Failed to create SageX Regedit folder: $_" -ForegroundColor Red
-            exit
+            Write-Host "Press any key to continue..."
+            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+            return $false
         }
     }
     
@@ -103,7 +106,10 @@ function Initialize-OTPSystem {
             $localOTP = Get-Content $LocalStoragePath | Where-Object { $_ -match '^otp=' } | ForEach-Object { ($_ -split '=')[1] }
             
             if ([string]::IsNullOrEmpty($localOTP)) {
-                throw "No OTP found in local storage"
+                Write-Host "[!] No OTP found in local storage" -ForegroundColor Red
+                Write-Host "Press any key to continue..."
+                $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+                return $false
             }
             
             # Verify against remote database
@@ -113,8 +119,9 @@ function Initialize-OTPSystem {
                 Write-Host "`n[!] Device not authorized. Please contact support." -ForegroundColor Red
                 Write-Host "[!] Fingerprint: $machineFingerprint" -ForegroundColor Yellow
                 Write-Host "[!] OTP: $localOTP" -ForegroundColor Cyan
-                Start-Sleep 15
-                exit
+                Write-Host "`nPress any key to exit..."
+                $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+                return $false
             }
             
             Write-Host "`n[+] Device verified successfully!" -ForegroundColor Green
@@ -122,7 +129,9 @@ function Initialize-OTPSystem {
         }
         catch {
             Write-Host "[!] Error reading local OTP: $_" -ForegroundColor Red
-            exit
+            Write-Host "Press any key to continue..."
+            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+            return $false
         }
     }
     else {
@@ -142,14 +151,16 @@ function Initialize-OTPSystem {
             Write-Host "[!] Please register this device with the following information:" -ForegroundColor Cyan
             Write-Host "`n[!] Fingerprint: $machineFingerprint" -ForegroundColor Yellow
             Write-Host "[!] OTP: $newOTP" -ForegroundColor Green
-            Write-Host "`n[!] Send this information to the developer :" -ForegroundColor Cyan
-            Write-Host "`n[*] Exiting until device is authorized..." -ForegroundColor Red
-            Start-Sleep 10
-            exit
+            Write-Host "`n[!] Send this information to the developer" -ForegroundColor Cyan
+            Write-Host "`nPress any key to exit..."
+            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+            return $false
         }
         catch {
             Write-Host "[!] Failed to create OTP file: $_" -ForegroundColor Red
-            exit
+            Write-Host "Press any key to continue..."
+            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+            return $false
         }
     }
 }
@@ -268,7 +279,12 @@ function Show-StatusPanel {
 # ==================== MAIN EXECUTION ====================
 
 # Run OTP verification first
-Initialize-OTPSystem
+$otpVerified = Initialize-OTPSystem
+
+if (-not $otpVerified) {
+    # Exit if OTP verification failed
+    exit
+}
 
 # Clear screen and show enhanced interface
 Clear-Host
