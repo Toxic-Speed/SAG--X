@@ -284,9 +284,19 @@ function Show-Status {
     
     Write-Host "`n[+] SageX Drag Assist Controller" -ForegroundColor Yellow
     Write-Host "[+] Status: " -NoNewline
-    Write-Host ($Enabled ? "ACTIVE" : "INACTIVE") -ForegroundColor $statusColor
+    if ($Enabled) {
+        Write-Host "ACTIVE" -ForegroundColor $statusColor
+    } else {
+        Write-Host "INACTIVE" -ForegroundColor $statusColor
+    }
+    
     Write-Host "[+] LMB Hold: " -NoNewline
-    Write-Host ($IsHolding ? "DETECTED" : "WAITING") -ForegroundColor $holdColor
+    if ($IsHolding) {
+        Write-Host "DETECTED" -ForegroundColor $holdColor
+    } else {
+        Write-Host "WAITING" -ForegroundColor $holdColor
+    }
+    
     Write-Host "[+] Strength: $strengthBar $Strength/10" -ForegroundColor Magenta
     Write-Host "[+] Assist Level: $assistBar $AssistLevel/5" -ForegroundColor Cyan
     Write-Host "[+] Controls:" -ForegroundColor White
