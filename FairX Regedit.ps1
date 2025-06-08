@@ -10,10 +10,8 @@ function Get-MachineFingerprint {
                       Where-Object { $_.IPEnabled -eq $true }).MacAddress | Select-Object -First 1
         
         $combinedId = "$cpuId$biosId$diskId$macAddress"
-        $hashedId = [System.BitConverter]::ToString(
-            [System.Security.Cryptography.SHA256]::Create().ComputeHash(
-                [System.Text.Encoding]::UTF8.GetBytes($combinedId)
-            ) -replace "-", ""
+        $hash = [System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($combinedId))
+        $hashedId = [System.BitConverter]::ToString($hash) -replace "-", ""
         
         return $hashedId.Substring(0, 32)
     }
