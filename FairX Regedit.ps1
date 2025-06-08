@@ -16,7 +16,7 @@ function Get-MachineFingerprint {
         return $hashedId.Substring(0, 32)
     }
     catch {
-        Write-Host "[!] Error generating machine fingerprint: $_"
+        Write-Host "[!] Error generating machine fingerprint: $_" -ForegroundColor Red
         exit
     }
 }
@@ -37,7 +37,7 @@ function Generate-SecureOTP {
         return $otp
     }
     catch {
-        Write-Host "[!] Error generating OTP: $_"
+        Write-Host "[!] Error generating OTP: $_" -ForegroundColor Red
         exit
     }
 }
@@ -69,7 +69,7 @@ function Verify-OTP {
         } while ($true)
 
         if ([string]::IsNullOrEmpty($remoteData)) {
-            Write-Host "[!] Empty OTP database received"
+            Write-Host "[!] Empty OTP database received" -ForegroundColor Yellow
             return $false
         }
         
@@ -77,7 +77,7 @@ function Verify-OTP {
         return ($remoteData -match $pattern)
     }
     catch {
-        Write-Host "[!] Failed to verify OTP: $_"
+        Write-Host "[!] Failed to verify OTP: $_" -ForegroundColor Red
         return $false
     }
 }
@@ -101,9 +101,9 @@ function Initialize-OTPSystem {
             }
             
             if (-not (Verify-OTP -MachineFingerprint $machineFingerprint -OTP $localOTP -DatabaseURL $RemoteDatabaseURL)) {
-                Write-Host "`n[!] Device not authorized. Please contact support."
-                Write-Host "[!] Fingerprint: $machineFingerprint"
-                Write-Host "[!] OTP: $localOTP"
+                Write-Host "`n[!] Device not authorized. Please contact support." -ForegroundColor Red
+                Write-Host "[!] Fingerprint: $machineFingerprint" -ForegroundColor Yellow
+                Write-Host "[!] OTP: $localOTP" -ForegroundColor Yellow
                 Start-Sleep 15
                 exit
             }
@@ -120,19 +120,19 @@ function Initialize-OTPSystem {
             )
             
             $otpContent | Out-File -FilePath $LocalStoragePath -Force -Encoding UTF8
-            Write-Host "`n[!] FIRST-TIME SETUP REQUIRED"
-            Write-Host "============================================="
-            Write-Host "[!] Please register this device with the following information:"
-            Write-Host "`n[!] Fingerprint: $machineFingerprint"
-            Write-Host "[!] OTP: $newOTP"
-            Write-Host "`n[!] Send this information to the developer"
-            Write-Host "`n[*] Exiting until device is authorized..."
+            Write-Host "`n[!] FIRST-TIME SETUP REQUIRED" -ForegroundColor Yellow
+            Write-Host "=============================================" -ForegroundColor Cyan
+            Write-Host "[!] Please register this device with the following information:" -ForegroundColor Yellow
+            Write-Host "`n[!] Fingerprint: $machineFingerprint" -ForegroundColor Cyan
+            Write-Host "[!] OTP: $newOTP" -ForegroundColor Cyan
+            Write-Host "`n[!] Send this information to the developer" -ForegroundColor Yellow
+            Write-Host "`n[*] Exiting until device is authorized..." -ForegroundColor Gray
             Start-Sleep 10
             exit
         }
     }
     catch {
-        Write-Host "[!] OTP System Error: $_"
+        Write-Host "[!] OTP System Error: $_" -ForegroundColor Red
         exit
     }
 }
@@ -145,22 +145,16 @@ Clear-Host
 $host.UI.RawUI.WindowTitle = "SageX Drag Assist - Loading..."
 $host.UI.RawUI.ForegroundColor = "White"
 
-# ASCII Art with colors
-$colors = @("Red", "Yellow", "Cyan", "Green", "Magenta", "Blue", "White")
+Write-Host @"
 
-$asciiArt = @'
-  _________                     ____  ___ __________                         .___.__  __   
- /   _____/____     ____   ____ \   \/  / \______   \ ____   ____   ____   __| _/|__|/  |_ 
- \_____  \\__  \   / ___\_/ __ \ \     /   |       _// __ \ / ___\_/ __ \ / __ | |  \   __\
- /        \/ __ \_/ /_/  >  ___/ /     \   |    |   \  ___// /_/  >  ___// /_/ | |  ||  |  
-/_______  (____  /\___  / \___  >___/\  \  |____|_  /\___  >___  / \___  >____ | |__||__|  
-        \/     \//_____/      \/      \_/         \/     \/_____/      \/     \/            
-'@
+███████╗ █████╗  ██████╗ ███████╗██╗  ██╗    ██████╗ ██████╗  █████╗  ██████╗     █████╗ ███████╗███████╗██╗███████╗████████╗
+██╔════╝██╔══██╗██╔════╝ ██╔════╝╚██╗██╔╝    ██╔══██╗██╔══██╗██╔══██╗██╔════╝    ██╔══██╗██╔════╝██╔════╝██║██╔════╝╚══██╔══╝
+███████╗███████║██║  ███╗█████╗   ╚███╔╝     ██║  ██║██████╔╝███████║██║         ███████║███████╗███████╗██║█████╗     ██║   
+╚════██║██╔══██║██║   ██║██╔══╝   ██╔██╗     ██║  ██║██╔══██╗██╔══██║██║         ██╔══██║╚════██║╚════██║██║██╔══╝     ██║   
+███████║██║  ██║╚██████╔╝███████╗██╔╝ ██╗    ██████╔╝██║  ██║██║  ██║╚██████╗    ██║  ██║███████║███████║██║██║        ██║   
+╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝    ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝    ╚═╝  ╚═╝╚══════╝╚══════╝╚═╝╚═╝        ╚═╝   
+"@ -ForegroundColor Cyan
 
-$asciiArt -split "`n" | ForEach-Object {
-    $color = Get-Random -InputObject $colors
-    Write-Host $_ -ForegroundColor $color
-}
 # Get SID with error handling
 try {
     $sid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
@@ -360,7 +354,7 @@ $dragAssistThread = [PowerShell]::Create().AddScript({
 
 $handle = $dragAssistThread.BeginInvoke()
 
-# Display control panel with enhanced visuals
+# Display control panel with enhanced visuals and safe console sizing
 function Show-ControlPanel {
     param(
         [int]$Strength = 5,
@@ -371,21 +365,35 @@ function Show-ControlPanel {
         [bool]$Enabled = $true
     )
     
+    try {
+        # Get current console settings safely
+        $rawUI = $host.UI.RawUI
+        $currentWindow = $rawUI.WindowSize
+        $currentBuffer = $rawUI.BufferSize
+        
+        # Calculate new sizes with safety checks
+        $newWindowWidth = [Math]::Min(80, [Console]::LargestWindowWidth)
+        $newWindowHeight = [Math]::Min(25, [Console]::LargestWindowHeight)
+        
+        $newBufferWidth = [Math]::Max(80, $newWindowWidth)
+        $newBufferHeight = [Math]::Max(30, $newWindowHeight)
+        
+        # Only resize if needed and possible
+        if ($newBufferWidth -gt $currentBuffer.Width -or $newBufferHeight -gt $currentBuffer.Height) {
+            $rawUI.BufferSize = New-Object System.Management.Automation.Host.Size($newBufferWidth, $newBufferHeight)
+        }
+        
+        if ($newWindowWidth -ne $currentWindow.Width -or $newWindowHeight -ne $currentWindow.Height) {
+            $rawUI.WindowSize = New-Object System.Management.Automation.Host.Size($newWindowWidth, $newWindowHeight)
+        }
+    }
+    catch {
+        Write-Host "[!] Console resize error (some elements may not display perfectly): $_" -ForegroundColor Yellow
+    }
+    
     # Save cursor position and hide it
     $cursorPos = $host.UI.RawUI.CursorPosition
     $host.UI.RawUI.CursorSize = 0
-    
-    # Set buffer size to prevent scrolling
-    $buffer = $host.UI.RawUI.BufferSize
-    $buffer.Width = 80
-    $buffer.Height = 30
-    $host.UI.RawUI.BufferSize = $buffer
-    
-    # Set window size
-    $window = $host.UI.RawUI.WindowSize
-    $window.Width = 80
-    $window.Height = 25
-    $host.UI.RawUI.WindowSize = $window
     
     # Set colors
     $host.UI.RawUI.ForegroundColor = "White"
