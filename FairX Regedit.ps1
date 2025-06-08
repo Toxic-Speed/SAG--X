@@ -444,8 +444,8 @@ public class SageXDragAssist {
         Console.SetCursorPosition(0, Console.CursorTop - 7);
         Console.WriteLine("[+] Status: " + (Enabled ? "ACTIVE " : "INACTIVE") + "    ");
         Console.WriteLine("[+] LMB Hold: " + (IsHolding ? "DETECTED" : "WAITING ") + "    ");
-        Console.WriteLine("[+] Strength: [" + new string('■', Strength) + new string(' ', 10 - Strength) + $"] {Strength}/10    ");
-        Console.WriteLine("[+] Assist Level: [" + new string('■', AssistLevel) + new string(' ', 5 - AssistLevel) + $"] {AssistLevel}/5    ");
+        Console.WriteLine("[+] Strength: [" + new string('■', Strength) + new string(' ', 10 - Strength) + "] " + Strength + "/10    ");
+        Console.WriteLine("[+] Assist Level: [" + new string('■', AssistLevel) + new string(' ', 5 - AssistLevel) + "] " + AssistLevel + "/5    ");
         Console.WriteLine("                                                                                ");
         Console.WriteLine("                                                                                ");
         Console.WriteLine("                                                                                ");
