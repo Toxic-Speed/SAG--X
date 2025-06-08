@@ -1,37 +1,117 @@
-Clear-Host
+<#
+.SYNOPSIS
+    SageX Regedit Tool with OTP Verification System
+.DESCRIPTION
+    Enhanced registry editing tool with secure device authentication
+.NOTES
+    Version: 2.1
+    Author: Your Name
+#>
+
+# ==================== ENHANCED ERROR HANDLING ====================
+$ErrorActionPreference = "Stop"
+$global:LastError = $null
+
+function Show-ErrorAndExit {
+    param(
+        [string]$ErrorMessage,
+        [bool]$Fatal = $true
+    )
+    
+    Write-Host "`n[!] ERROR: $ErrorMessage" -ForegroundColor Red
+    Write-Host "[*] Error occurred at line $($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor Yellow
+    Write-Host "[*] Stack trace:`n$($_.ScriptStackTrace)" -ForegroundColor DarkYellow
+    
+    if ($Fatal) {
+        Write-Host "`nPress any key to exit..." -ForegroundColor Red
+        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+        exit 1
+    }
+}
+
+trap {
+    $global:LastError = $_
+    Show-ErrorAndExit -ErrorMessage $_.Exception.Message
+}
 
 # ==================== OTP VERIFICATION SYSTEM ====================
 function Get-MachineFingerprint {
-    # Create a unique fingerprint using multiple system identifiers
-    $cpuId = (Get-WmiObject Win32_Processor).ProcessorId
-    $biosId = (Get-WmiObject Win32_BIOS).SerialNumber
-    $diskId = (Get-WmiObject Win32_DiskDrive).SerialNumber
-    $macAddress = (Get-WmiObject Win32_NetworkAdapterConfiguration | Where-Object { $_.IPEnabled -eq $true }).MacAddress | Select-Object -First 1
-    
-    $combinedId = "$cpuId$biosId$diskId$macAddress"
-    $hashedId = [System.BitConverter]::ToString(
-        [System.Security.Cryptography.SHA256]::Create().ComputeHash(
-            [System.Text.Encoding]::UTF8.GetBytes($combinedId)
-        )
-    ) -replace "-", ""
-    
-    return $hashedId.Substring(0, 32)  # Return first 32 chars of hash
+    try {
+        # Create a unique fingerprint using multiple system identifiers
+        $identifiers = @()
+        
+        # CPU ID with fallback
+        try {
+            $cpu = Get-CimInstance -ClassName Win32_Processor -ErrorAction Stop | Select-Object -First 1
+            if (-not $cpu.ProcessorId) { throw "No ProcessorId found" }
+            $identifiers += $cpu.ProcessorId
+        } catch {
+            Write-Host "[WARNING] Could not get CPU ID: $_" -ForegroundColor Yellow
+            $identifiers += "CPU-UNKNOWN-" + (Get-Date -Format "yyyyMMddHHmmss")
+        }
+
+        # BIOS ID with fallback
+        try {
+            $bios = Get-CimInstance -ClassName Win32_BIOS -ErrorAction Stop | Select-Object -First 1
+            if (-not $bios.SerialNumber) { throw "No SerialNumber found" }
+            $identifiers += $bios.SerialNumber
+        } catch {
+            Write-Host "[WARNING] Could not get BIOS ID: $_" -ForegroundColor Yellow
+            $identifiers += "BIOS-UNKNOWN-" + (Get-Date -Format "yyyyMMddHHmmss")
+        }
+
+        # Disk ID with fallback
+        try {
+            $disk = Get-CimInstance -ClassName Win32_DiskDrive -ErrorAction Stop | Select-Object -First 1
+            if (-not $disk.SerialNumber) { throw "No SerialNumber found" }
+            $identifiers += $disk.SerialNumber
+        } catch {
+            Write-Host "[WARNING] Could not get Disk ID: $_" -ForegroundColor Yellow
+            $identifiers += "DISK-UNKNOWN-" + (Get-Date -Format "yyyyMMddHHmmss")
+        }
+
+        # MAC Address with fallback
+        try {
+            $mac = (Get-CimInstance -ClassName Win32_NetworkAdapterConfiguration -ErrorAction Stop | 
+                   Where-Object { $_.IPEnabled -eq $true } | 
+                   Select-Object -First 1).MacAddress
+            if (-not $mac) { throw "No MAC Address found" }
+            $identifiers += $mac
+        } catch {
+            Write-Host "[WARNING] Could not get MAC Address: $_" -ForegroundColor Yellow
+            $identifiers += "MAC-UNKNOWN-" + (Get-Date -Format "yyyyMMddHHmmss")
+        }
+        
+        $combinedId = $identifiers -join ""
+        $hasher = [System.Security.Cryptography.SHA256]::Create()
+        $hashBytes = $hasher.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($combinedId))
+        $hashedId = [System.BitConverter]::ToString($hashBytes) -replace "-", ""
+        
+        return $hashedId.Substring(0, 32)
+    }
+    catch {
+        Show-ErrorAndExit -ErrorMessage "Failed to generate machine fingerprint: $_"
+    }
 }
 
 function Generate-SecureOTP {
     param([int]$Length = 12)
     
-    # Create a cryptographically secure OTP
-    $validChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # Exclude easily confused chars
-    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
-    $bytes = New-Object byte[]($Length)
-    $rng.GetBytes($bytes)
-    
-    $otp = -join ($bytes | ForEach-Object {
-        $validChars[$_ % $validChars.Length]
-    })
-    
-    return $otp
+    try {
+        $validChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+        $bytes = New-Object byte[]($Length)
+        $rng.GetBytes($bytes)
+        
+        $otp = -join ($bytes | ForEach-Object {
+            $validChars[$_ % $validChars.Length]
+        })
+        
+        return $otp
+    }
+    catch {
+        Show-ErrorAndExit -ErrorMessage "Failed to generate OTP: $_"
+    }
 }
 
 function Verify-OTP {
@@ -42,32 +122,31 @@ function Verify-OTP {
     )
     
     try {
-        # Fetch remote database with retry logic
         $maxRetries = 3
-        $retryCount = 0
+        $retryDelay = 5
         $remoteData = $null
         
-        do {
+        for ($i = 1; $i -le $maxRetries; $i++) {
             try {
+                Write-Host "[*] Attempt $i of $maxRetries to fetch OTP database..." -ForegroundColor Cyan
                 $remoteData = Invoke-RestMethod -Uri $DatabaseURL -UseBasicParsing -ErrorAction Stop -ContentType "text/plain; charset=utf-8"
+                
+                if ([string]::IsNullOrEmpty($remoteData)) {
+                    throw "Empty OTP database received"
+                }
+                
                 break
             }
             catch {
-                $retryCount++
-                if ($retryCount -ge $maxRetries) {
-                    Write-Host "[!] Failed to fetch OTP database after $maxRetries attempts: $_" -ForegroundColor Red
-                    return $false
+                if ($i -eq $maxRetries) {
+                    throw "Failed to fetch OTP database after $maxRetries attempts: $_"
                 }
-                Start-Sleep -Seconds 5
+                
+                Write-Host "[WARNING] Attempt $i failed: $_" -ForegroundColor Yellow
+                Start-Sleep -Seconds $retryDelay
             }
-        } while ($true)
-
-        if ([string]::IsNullOrEmpty($remoteData)) {
-            Write-Host "[!] Empty OTP database received" -ForegroundColor Red
-            return $false
         }
         
-        # Check for matching entry (format: fingerprint:otp:timestamp)
         $pattern = "$MachineFingerprint`:$OTP`:\d{4}-\d{2}-\d{2}"
         if ($remoteData -match $pattern) {
             return $true
@@ -76,149 +155,142 @@ function Verify-OTP {
         return $false
     }
     catch {
-        Write-Host "[!] Failed to verify OTP: $_" -ForegroundColor Red
-        return $false
+        Show-ErrorAndExit -ErrorMessage "OTP verification failed: $_"
     }
 }
 
 function Initialize-OTPSystem {
-    # Create SageX Regedit folder in AppData if it doesn't exist
-    $appDataFolder = "$env:APPDATA\SageX Regedit"
-    if (-not (Test-Path $appDataFolder)) {
-        try {
-            New-Item -ItemType Directory -Path $appDataFolder -Force | Out-Null
-        }
-        catch {
-            Write-Host "[!] Failed to create SageX Regedit folder: $_" -ForegroundColor Red
-            Write-Host "Press any key to continue..."
-            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-            return $false
-        }
-    }
-    
-    $LocalStoragePath = "$appDataFolder\otp.ini"
-    $RemoteDatabaseURL = "https://raw.githubusercontent.com/Toxic-Speed/SAG--X/main/otp_db.txt"
-    $machineFingerprint = Get-MachineFingerprint
-    
-    # Check if OTP already exists locally
-    if (Test-Path $LocalStoragePath) {
-        try {
-            $localOTP = Get-Content $LocalStoragePath | Where-Object { $_ -match '^otp=' } | ForEach-Object { ($_ -split '=')[1] }
-            
-            if ([string]::IsNullOrEmpty($localOTP)) {
-                Write-Host "[!] No OTP found in local storage" -ForegroundColor Red
-                Write-Host "Press any key to continue..."
-                $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-                return $false
+    try {
+        $appDataFolder = "$env:APPDATA\SageX Regedit"
+        
+        # Create application folder if needed
+        if (-not (Test-Path $appDataFolder)) {
+            try {
+                New-Item -ItemType Directory -Path $appDataFolder -Force | Out-Null
+                Write-Host "[*] Created application folder: $appDataFolder" -ForegroundColor Green
             }
+            catch {
+                throw "Failed to create SageX Regedit folder: $_"
+            }
+        }
+        
+        $LocalStoragePath = "$appDataFolder\otp.ini"
+        $RemoteDatabaseURL = "https://raw.githubusercontent.com/Toxic-Speed/SAG--X/main/otp_db.txt"
+        $machineFingerprint = Get-MachineFingerprint
+        
+        # Check existing OTP
+        if (Test-Path $LocalStoragePath) {
+            try {
+                $localOTP = Get-Content $LocalStoragePath | Where-Object { $_ -match '^otp=' } | ForEach-Object { ($_ -split '=')[1] }
+                
+                if ([string]::IsNullOrEmpty($localOTP)) {
+                    throw "No valid OTP found in local storage"
+                }
+                
+                $isVerified = Verify-OTP -MachineFingerprint $machineFingerprint -OTP $localOTP -DatabaseURL $RemoteDatabaseURL
+                
+                if (-not $isVerified) {
+                    Write-Host "`n[!] DEVICE NOT AUTHORIZED" -ForegroundColor Red
+                    Write-Host "[!] Fingerprint: $machineFingerprint" -ForegroundColor Yellow
+                    Write-Host "[!] OTP: $localOTP" -ForegroundColor Cyan
+                    Write-Host "`nPlease contact support with this information."
+                    Write-Host "`nPress any key to exit..."
+                    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+                    return $false
+                }
+                
+                Write-Host "`n[+] Device verified successfully!" -ForegroundColor Green
+                return $true
+            }
+            catch {
+                throw "Error reading local OTP: $_"
+            }
+        }
+        else {
+            # First-time setup
+            $newOTP = Generate-SecureOTP -Length 12
+            $otpContent = @(
+                "[OTP]",
+                "fingerprint=$machineFingerprint",
+                "otp=$newOTP",
+                "generated=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+            )
             
-            # Verify against remote database
-            $isVerified = Verify-OTP -MachineFingerprint $machineFingerprint -OTP $localOTP -DatabaseURL $RemoteDatabaseURL
-            
-            if (-not $isVerified) {
-                Write-Host "`n[!] Device not authorized. Please contact support." -ForegroundColor Red
-                Write-Host "[!] Fingerprint: $machineFingerprint" -ForegroundColor Yellow
-                Write-Host "[!] OTP: $localOTP" -ForegroundColor Cyan
+            try {
+                $otpContent | Out-File -FilePath $LocalStoragePath -Force -Encoding UTF8
+                
+                Write-Host "`n[!] FIRST-TIME SETUP REQUIRED" -ForegroundColor Yellow
+                Write-Host "=============================================" -ForegroundColor Cyan
+                Write-Host "[!] Please register this device with the following information:" -ForegroundColor Cyan
+                Write-Host "`n[!] Fingerprint: $machineFingerprint" -ForegroundColor Yellow
+                Write-Host "[!] OTP: $newOTP" -ForegroundColor Green
+                Write-Host "`n[!] Send this information to the developer" -ForegroundColor Cyan
                 Write-Host "`nPress any key to exit..."
                 $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
                 return $false
             }
-            
-            Write-Host "`n[+] Device verified successfully!" -ForegroundColor Green
-            return $true
-        }
-        catch {
-            Write-Host "[!] Error reading local OTP: $_" -ForegroundColor Red
-            Write-Host "Press any key to continue..."
-            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-            return $false
+            catch {
+                throw "Failed to create OTP file: $_"
+            }
         }
     }
-    else {
-        # First-time setup - generate and store OTP
-        $newOTP = Generate-SecureOTP -Length 12
-        $otpContent = @(
-            "[OTP]",
-            "fingerprint=$machineFingerprint",
-            "otp=$newOTP",
-            "generated=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
-        )
-        
-        try {
-            $otpContent | Out-File -FilePath $LocalStoragePath -Force -Encoding UTF8
-            Write-Host "`n[!] FIRST-TIME SETUP REQUIRED" -ForegroundColor Yellow
-            Write-Host "=============================================" -ForegroundColor Cyan
-            Write-Host "[!] Please register this device with the following information:" -ForegroundColor Cyan
-            Write-Host "`n[!] Fingerprint: $machineFingerprint" -ForegroundColor Yellow
-            Write-Host "[!] OTP: $newOTP" -ForegroundColor Green
-            Write-Host "`n[!] Send this information to the developer" -ForegroundColor Cyan
-            Write-Host "`nPress any key to exit..."
-            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-            return $false
-        }
-        catch {
-            Write-Host "[!] Failed to create OTP file: $_" -ForegroundColor Red
-            Write-Host "Press any key to continue..."
-            $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-            return $false
-        }
+    catch {
+        Show-ErrorAndExit -ErrorMessage "OTP system initialization failed: $_"
     }
 }
 
 # ==================== ENHANCED VISUAL CONSOLE ====================
 function Show-ConsoleHeader {
-    # Enhanced ASCII Art with gradient effect
-    $asciiArt = @"
-  _________                     ____  ___ __________                         .___.__  __   
- /   _____/____     ____   ____ \   \/  / \______   \ ____   ____   ____   __| _/|__|/  |_ 
- \_____  \\__  \   / ___\_/ __ \ \     /   |       _// __ \ / ___\_/ __ \ / __ | |  \   __\
- /        \/ __ \_/ /_/  >  ___/ /     \   |    |   \  ___// /_/  >  ___// /_/ | |  ||  |  
-/_______  (____  /\___  / \___  >___/\  \  |____|_  /\___  >___  / \___  >____ | |__||__|  
-        \/     \//_____/      \/      \_/         \/     \/_____/      \/     \/           
-"@
-
-    # Create gradient effect
     $colors = @('DarkRed', 'Red', 'DarkYellow', 'Yellow', 'Green', 'DarkGreen', 'Cyan', 'DarkCyan', 'Blue', 'DarkBlue')
-    $lines = $asciiArt -split "`n"
+    $lines = @(
+        "  _________                     ____  ___ __________                         .___.__  __   ",
+        " /   _____/____     ____   ____ \   \/  / \______   \ ____   ____   ____   __| _/|__|/  |_ ",
+        " \_____  \\__  \   / ___\_/ __ \ \     /   |       _// __ \ / ___\_/ __ \ / __ | |  \   __\",
+        " /        \/ __ \_/ /_/  >  ___/ /     \   |    |   \  ___// /_/  >  ___// /_/ | |  ||  |  ",
+        "/_______  (____  /\___  / \___  >___/\  \  |____|_  /\___  >___  / \___  >____ | |__||__|  ",
+        "        \/     \//_____/      \/      \_/         \/     \/_____/      \/     \/           "
+    )
     
     for ($i = 0; $i -lt $lines.Count; $i++) {
-        $color = $colors[$i % $colors.Count]
-        Write-Host $lines[$i] -ForegroundColor $color
+        Write-Host $lines[$i] -ForegroundColor $colors[$i % $colors.Count]
     }
 }
 
 function Show-SystemInfo {
-    # Get system information with visual formatting
-    $border = "=" * 60
-    Write-Host "`n$border" -ForegroundColor Cyan
-    Write-Host " SYSTEM INFORMATION" -ForegroundColor Yellow
-    Write-Host $border -ForegroundColor Cyan
-    
     try {
+        $border = "=" * 60
+        Write-Host "`n$border" -ForegroundColor Cyan
+        Write-Host " SYSTEM INFORMATION" -ForegroundColor Yellow
+        Write-Host $border -ForegroundColor Cyan
+        
         $sid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
         Write-Host "[*] Your SID: $sid" -ForegroundColor Green
         
-        $hwid = (Get-WmiObject -Class Win32_ComputerSystemProduct).UUID
-        $hashedHWID = [System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($hwid))) -replace "-", ""
+        $hwid = (Get-CimInstance -ClassName Win32_ComputerSystemProduct).UUID
+        $hashedHWID = [System.BitConverter]::ToString(
+            [System.Security.Cryptography.SHA256]::Create().ComputeHash(
+                [System.Text.Encoding]::UTF8.GetBytes($hwid)
+            )
+        ) -replace "-", ""
         Write-Host "[*] Hashed HWID: $hashedHWID" -ForegroundColor Green
         
         $osInfo = Get-CimInstance Win32_OperatingSystem
         Write-Host "[*] OS: $($osInfo.Caption) ($($osInfo.OSArchitecture))" -ForegroundColor Green
         Write-Host "[*] Version: $($osInfo.Version)" -ForegroundColor Green
         
-        $cpu = Get-WmiObject Win32_Processor | Select-Object -First 1
+        $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
         Write-Host "[*] CPU: $($cpu.Name)" -ForegroundColor Green
         
         $ram = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB)
         Write-Host "[*] RAM: ${ram}GB" -ForegroundColor Green
         
-        $gpu = Get-WmiObject Win32_VideoController | Select-Object -First 1
+        $gpu = Get-CimInstance Win32_VideoController | Select-Object -First 1
         Write-Host "[*] GPU: $($gpu.Name)" -ForegroundColor Green
         
         Write-Host $border -ForegroundColor Cyan
     }
     catch {
-        Write-Host "[!] Error retrieving system information: $_" -ForegroundColor Red
+        Write-Host "[WARNING] Could not retrieve all system information: $_" -ForegroundColor Yellow
     }
 }
 
@@ -230,43 +302,32 @@ function Show-StatusPanel {
         [int]$AssistLevel
     )
     
-    # Create a visual status panel
     $border = "-" * 60
     Write-Host "`n$border" -ForegroundColor DarkCyan
     Write-Host " SAGEX DRAG ASSIST STATUS" -ForegroundColor Yellow
     Write-Host $border -ForegroundColor DarkCyan
     
     # Status indicator
+    $statusText = if ($Enabled) { "ACTIVE" } else { "INACTIVE" }
     $statusColor = if ($Enabled) { "Green" } else { "Red" }
-    $statusIcon = if ($Enabled) { "✔" } else { "✖" }
     Write-Host "[Status]   " -NoNewline
-    if ($Enabled) {
-        Write-Host "$statusIcon ACTIVE" -ForegroundColor $statusColor
-    } else {
-        Write-Host "$statusIcon INACTIVE" -ForegroundColor $statusColor
-    }
+    Write-Host $statusText -ForegroundColor $statusColor
     
     # LMB Hold indicator
+    $holdText = if ($IsHolding) { "DETECTED" } else { "WAITING" }
     $holdColor = if ($IsHolding) { "Cyan" } else { "Gray" }
-    $holdIcon = if ($IsHolding) { "↓" } else { "↑" }
     Write-Host "[LMB Hold] " -NoNewline
-    if ($IsHolding) {
-        Write-Host "$holdIcon DETECTED" -ForegroundColor $holdColor
-    } else {
-        Write-Host "$holdIcon WAITING" -ForegroundColor $holdColor
-    }
+    Write-Host $holdText -ForegroundColor $holdColor
     
     # Strength meter
-    Write-Host "[Strength] " -NoNewline
     $strengthBar = "[" + ("■" * $Strength) + (" " * (10 - $Strength)) + "]"
-    Write-Host $strengthBar -NoNewline -ForegroundColor Magenta
-    Write-Host " $Strength/10"
+    Write-Host "[Strength] " -NoNewline
+    Write-Host "$strengthBar $Strength/10" -ForegroundColor Magenta
     
     # Assist level meter
-    Write-Host "[Assist]   " -NoNewline
     $assistBar = "[" + ("■" * $AssistLevel) + (" " * (5 - $AssistLevel)) + "]"
-    Write-Host $assistBar -NoNewline -ForegroundColor Cyan
-    Write-Host " $AssistLevel/5"
+    Write-Host "[Assist]   " -NoNewline
+    Write-Host "$assistBar $AssistLevel/5" -ForegroundColor Cyan
     
     # Controls help
     Write-Host $border -ForegroundColor DarkCyan
@@ -277,25 +338,36 @@ function Show-StatusPanel {
 }
 
 # ==================== MAIN EXECUTION ====================
+try {
+    # Check if running in console host
+    if ($Host.Name -ne "ConsoleHost") {
+        throw "This script must be run in PowerShell console (not ISE or VSCode)"
+    }
 
-# Run OTP verification first
-$otpVerified = Initialize-OTPSystem
+    # Run OTP verification
+    $otpVerified = Initialize-OTPSystem
+    if (-not $otpVerified) {
+        exit 1
+    }
 
-if (-not $otpVerified) {
-    # Exit if OTP verification failed
-    exit
+    # Display interface
+    Clear-Host
+    Show-ConsoleHeader
+    Show-SystemInfo
+
+    # Initialize default values
+    $enabled = $true
+    $strength = 6
+    $isHolding = $false
+    $assistLevel = 3
+
+    # Show status panel
+    Show-StatusPanel -Enabled $enabled -Strength $strength -IsHolding $isHolding -AssistLevel $assistLevel
+
+    # Keep console open
+    Write-Host "`nScript completed successfully. Press any key to exit..." -ForegroundColor Green
+    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
 }
-
-# Clear screen and show enhanced interface
-Clear-Host
-Show-ConsoleHeader
-Show-SystemInfo
-
-# Initialize default values for the status panel
-$enabled = $true
-$strength = 6
-$isHolding = $false
-$assistLevel = 3
-
-# Show initial status panel
-Show-StatusPanel -Enabled $enabled -Strength $strength -IsHolding $isHolding -AssistLevel $assistLevel
+catch {
+    Show-ErrorAndExit -ErrorMessage $_.Exception.Message
+}
