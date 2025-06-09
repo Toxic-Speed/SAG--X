@@ -472,11 +472,11 @@ function Show-ControlPanel {
         Write-Host $_.Line -ForegroundColor $_.Color
     }
 
-    # Draw the rest of the UI (unchanged from your original)
+    # Draw the rest of the UI with corrected string multiplication
     Write-Host "`n" -NoNewline
-    Write-Host " " * ----------- *  -NoNewline -ForegroundColor White
+    Write-Host ("-" * 20) -NoNewline -ForegroundColor White
     Write-Host " DRAG ASSIST CONTROL PANEL " -NoNewline -ForegroundColor White
-    Write-Host " " * ----------- *  -ForegroundColor White
+    Write-Host ("-" * 20) -ForegroundColor White
 
     Write-Host "`n[+] SID: " -NoNewline -ForegroundColor Gray
     Write-Host $sid -ForegroundColor Yellow
