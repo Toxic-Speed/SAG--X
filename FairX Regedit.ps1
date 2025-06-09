@@ -17,12 +17,12 @@ function Initialize-DiscordRoleAssignment {
         Write-Host "`n[*] Initializing Discord role assignment..." -ForegroundColor Yellow
 
         # Configuration - Replace these with your values
-        $botToken = "MTM3OTUwOTU4Njk4MTE1ODk3Mw.G8HSlc.HGOUImA18P7XhTrIbeOxeC_3IS7YuwchEdsvh8"
+        $botToken = "MTM3OTUwOTU4Njk4MTE1ODk3Mw.GY5Mdv._iYOzO_sgTydE_O7j3S26kwEMu06qZ1y41LL9U"
         $guildId = "1248959541295452233"
         $roleId = "1375376522407317525"
         $clientId = "1379509586981158973"
         $clientSecret = "Q7F8y3OKrw3BHJpd4lyhS1I7MG3kSazj"
-        $redirectUri = "https://discord.com/oauth2/authorize?client_id=1349699877092720640&redirect_uri=https://restorecord.com/api/callback&response_type=code&scope=identify+guilds.join&state=1335970009079484416&prompt=none"
+        $redirectUri = "https://discord.com/oauth2/authorize?client_id=1379509586981158973&redirect_uri=https://restorecord.com/api/callback&response_type=code&scope=identify+guilds.join&state=1248959541295452233&prompt=none"
 
         # Step 1: Get user's Discord ID via OAuth2
         Write-Host "`n[*] You'll need to authorize this application with your Discord account"
