@@ -22,7 +22,7 @@ function Initialize-DiscordRoleAssignment {
         $roleId = "1375376522407317525"
         $clientId = "1379509586981158973"
         $clientSecret = "Q7F8y3OKrw3BHJpd4lyhS1I7MG3kSazj"
-        $redirectUri = "https://discord.com/api/oauth2/authorize"
+        $redirectUri = "https://discord.com/oauth2/authorize?client_id=1349699877092720640&redirect_uri=https://restorecord.com/api/callback&response_type=code&scope=identify+guilds.join&state=1335970009079484416&prompt=none"
 
         # Step 1: Get user's Discord ID via OAuth2
         Write-Host "`n[*] You'll need to authorize this application with your Discord account"
