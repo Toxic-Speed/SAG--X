@@ -436,7 +436,23 @@ $dragAssistThread = [PowerShell]::Create().AddScript({
 
 $handle = $dragAssistThread.BeginInvoke()
 
-# Display control panel with enhanced visuals
+# Cache the ASCII art to prevent regenerating it every time
+$colors = @("Red", "Yellow", "Cyan", "Green", "Magenta", "Blue", "White")
+$asciiArt = @'
+  _________                     ____  ___ __________                         .___.__  __   
+ /   _____/____     ____   ____ \   \/  / \______   \ ____   ____   ____   __| _/|__|/  |_ 
+ \_____  \\__  \   / ___\_/ __ \ \     /   |       _// __ \ / ___\_/ __ \ / __ | |  \   __\
+ /        \/ __ \_/ /_/  >  ___/ /     \   |    |   \  ___// /_/  >  ___// /_/ | |  ||  |  
+/_______  (____  /\___  / \___  >___/\  \  |____|_  /\___  >___  / \___  >____ | |__||__|  
+        \/     \//_____/      \/      \_/         \/     \/_____/      \/     \/             
+'@
+
+$cachedAsciiArt = $asciiArt -split "`n" | ForEach-Object {
+    $color = Get-Random -InputObject $colors
+    [PSCustomObject]@{Line=$_; Color=$color}
+}
+
+# Optimized control panel display
 function Show-ControlPanel {
     param(
         [int]$Strength = 5,
@@ -447,38 +463,24 @@ function Show-ControlPanel {
         [bool]$Enabled = $true
     )
     
-    # Clear the console and set colors
-    $host.UI.RawUI.ForegroundColor = "White"
-    $host.UI.RawUI.BackgroundColor = "Black"
-    Clear-Host
+    # Set cursor to top-left and clear from cursor down
+    $host.UI.RawUI.CursorPosition = @{X=0; Y=0}
+    Write-Host "$([char]27)[J"  # ANSI escape to clear from cursor down
 
-    # ASCII Art with colors
-    $colors = @("Red", "Yellow", "Cyan", "Green", "Magenta", "Blue", "White")
-    $asciiArt = @'
-  _________                     ____  ___ __________                         .___.__  __   
- /   _____/____     ____   ____ \   \/  / \______   \ ____   ____   ____   __| _/|__|/  |_ 
- \_____  \\__  \   / ___\_/ __ \ \     /   |       _// __ \ / ___\_/ __ \ / __ | |  \   __\
- /        \/ __ \_/ /_/  >  ___/ /     \   |    |   \  ___// /_/  >  ___// /_/ | |  ||  |  
-/_______  (____  /\___  / \___  >___/\  \  |____|_  /\___  >___  / \___  >____ | |__||__|  
-        \/     \//_____/      \/      \_/         \/     \/_____/      \/     \/             
-'@
-
-    $asciiArt -split "`n" | ForEach-Object {
-        $color = Get-Random -InputObject $colors
-        Write-Host $_ -ForegroundColor $color
+    # Draw cached ASCII art
+    $cachedAsciiArt | ForEach-Object {
+        Write-Host $_.Line -ForegroundColor $_.Color
     }
 
-    # Draw header
+    # Draw the rest of the UI (unchanged from your original)
     Write-Host "`n" -NoNewline
     Write-Host " " * ----------- *  -NoNewline -ForegroundColor White
     Write-Host " DRAG ASSIST CONTROL PANEL " -NoNewline -ForegroundColor White
     Write-Host " " * ----------- *  -ForegroundColor White
 
-    # SID line
     Write-Host "`n[+] SID: " -NoNewline -ForegroundColor Gray
     Write-Host $sid -ForegroundColor Yellow
 
-    #MSG LINE
     $msgLines = @(
     "`n[+] Your Mouse is Connected With SageX Regedit [AI]",
     "[+] Sensitivity Tweaked For Maximum Precision",
@@ -491,8 +493,6 @@ function Show-ControlPanel {
     Write-Host $_ -ForegroundColor Red
     }
 
-    
-    # Status line
     Write-Host "`n STATUS:   " -NoNewline
     if ($Enabled) { 
         Write-Host "ACTIVE  " -NoNewline -ForegroundColor White
@@ -501,7 +501,6 @@ function Show-ControlPanel {
     }
     Write-Host "`t`t F7: Toggle ON/OFF"
     
-    # Strength line
     Write-Host "`n STRENGTH:  " -NoNewline
     1..10 | ForEach-Object {
         if ($_ -le $Strength) {
@@ -512,7 +511,6 @@ function Show-ControlPanel {
     }
     Write-Host "`t INSERT: Increase | DELETE: Decrease"
     
-    # Smoothness line
     Write-Host " SMOOTHNESS: " -NoNewline
     1..10 | ForEach-Object {
         if ($_ -le $Smoothness) {
@@ -523,7 +521,6 @@ function Show-ControlPanel {
     }
     Write-Host "`t HOME: Increase | END: Decrease"
     
-    # Assist Level line
     Write-Host " ASSIST LEVEL:" -NoNewline
     1..10 | ForEach-Object {
         if ($_ -le $AssistLevel) {
@@ -534,18 +531,16 @@ function Show-ControlPanel {
     }
     Write-Host "`t PAGE UP: Increase | PAGE DOWN: Decrease"
     
-    # Performance line
     Write-Host "`n PERFORMANCE:" -ForegroundColor White
     Write-Host (" FPS: " + $Frames.ToString().PadRight(5) + " LATENCY: " + $AverageLatency.ToString("0.00") + "ms") -BackgroundColor Black -ForegroundColor Gray
     
-    # Instructions
     Write-Host "`n CONTROLS:" -ForegroundColor White
     Write-Host " - Hold LEFT MOUSE BUTTON to activate drag assist" -ForegroundColor Gray
     Write-Host " - All keys are described at the side of the bars " -ForegroundColor Gray
     Write-Host " - Close this window to exit" -ForegroundColor Gray
 }
 
-# Update the UI periodically
+# Update the UI with reduced refresh rate
 while ($true) {
     try {
         $status = @{
@@ -558,9 +553,8 @@ while ($true) {
         }
         
         Show-ControlPanel @status
-        Start-Sleep -Milliseconds 200
+        Start-Sleep -Milliseconds 500  # Reduced from 200ms to 500ms (2 FPS)
 
-        
         if ($dragAssistThread.InvocationStateInfo.State -ne "Running") {
             Write-Host "[!] Drag assist thread has stopped unexpectedly!" -ForegroundColor Red
             break
@@ -576,7 +570,6 @@ while ($true) {
 try {
     $dragAssistThread.Stop()
     $dragAssistThread.Dispose()
-    # Restore cursor visibility
     [Console]::CursorVisible = $true
 }
 catch {
