@@ -558,6 +558,8 @@ while ($true) {
         }
         
         Show-ControlPanel @status
+        Start-Sleep -Milliseconds 200
+
         
         if ($dragAssistThread.InvocationStateInfo.State -ne "Running") {
             Write-Host "[!] Drag assist thread has stopped unexpectedly!" -ForegroundColor Red
