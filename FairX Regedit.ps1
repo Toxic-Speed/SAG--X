@@ -475,7 +475,7 @@ function Show-ControlPanel {
     Write-Host " " * ----------- *  -ForegroundColor White
 
     # SID line
-    Write-Host "`n SID: " -NoNewline -ForegroundColor Gray
+    Write-Host "`n[+] SID: " -NoNewline -ForegroundColor Gray
     Write-Host $sid -ForegroundColor Yellow
 
     #MSG LINE
@@ -558,7 +558,6 @@ while ($true) {
         }
         
         Show-ControlPanel @status
-        Start-Sleep -Milliseconds 200
         
         if ($dragAssistThread.InvocationStateInfo.State -ne "Running") {
             Write-Host "[!] Drag assist thread has stopped unexpectedly!" -ForegroundColor Red
