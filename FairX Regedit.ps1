@@ -552,7 +552,7 @@ while ($true) {
         }
         
         Show-ControlPanel @status
-        Start-Sleep -Milliseconds 500  # Reduced from 200ms to 500ms (2 FPS)
+        Start-Sleep -Milliseconds 1000  # Reduced from 200ms to 1000ms (1 FPS)
 
         if ($dragAssistThread.InvocationStateInfo.State -ne "Running") {
             Write-Host "[!] Drag assist thread has stopped unexpectedly!" -ForegroundColor Red
