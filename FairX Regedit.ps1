@@ -1,38 +1,5 @@
 Clear-Host
 
-# ==================== ONE-TIME REDIRECTION ====================
-$redirectDoneFlag = "$env:APPDATA\SageX_redirect_done.flag"
-if (-not (Test-Path $redirectDoneFlag)) {
-    # URL to redirect to
-    $redirectUrl = "https://example.com" # Replace with your desired URL
-    
-    try {
-        # Try different methods to open the URL
-        Start-Process $redirectUrl -ErrorAction SilentlyContinue
-    }
-    catch {
-        try {
-            [System.Diagnostics.Process]::Start($redirectUrl)
-        }
-        catch {
-            try {
-                $wshell = New-Object -ComObject WScript.Shell
-                $wshell.Run($redirectUrl)
-            }
-            catch {
-                Write-Host "[!] Failed to open browser: $_" -ForegroundColor Red
-            }
-        }
-    }
-    
-    # Create the flag file to prevent future redirects
-    $null = New-Item -ItemType File -Path $redirectDoneFlag -Force
-    
-    # Wait for 10 seconds
-    Start-Sleep -Seconds 10
-    Clear-Host
-}
-
 # ==================== SID COLLECTION (MOVED UP) ====================
 try {
     $sid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
