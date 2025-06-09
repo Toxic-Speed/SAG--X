@@ -1,6 +1,6 @@
 Clear-Host
 
-# ==================== SID COLLECTION (MOVED UP) ====================
+# ==================== SID COLLECTION ====================
 try {
     $sid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
     Write-Host "`n[*] Your SID: $sid" -ForegroundColor Yellow
@@ -40,7 +40,6 @@ function Send-WebhookMessage {
             $city = "Unavailable"
         }
 
-        # Determine color based on status
         $color = switch ($status) {
             "success" { 65280 }   # Green
             "error"   { 16711680 } # Red
@@ -78,16 +77,13 @@ function Send-WebhookMessage {
         return $true
     }
     catch {
-         # If it's a rate limit issue
         if ($_.Exception.Response -and $_.Exception.Response.StatusCode -eq 429) {
             $retryAfter = $_.Exception.Response.Headers['Retry-After']
         }
-        
         return $false
     }
 }
 
-# Test the webhook connection first
 $webhookTest = Send-WebhookMessage -message "Initial connection test" -status "info"
 if (-not $webhookTest) {
     Write-Host "[!] Webhook initialization failed. Continuing without webhook logging." -ForegroundColor Yellow
@@ -247,7 +243,6 @@ function Initialize-OTPSystem {
 Initialize-OTPSystem
 Clear-Host
 
-# Get SID with error handling
 try {
     $sid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
     Write-Host "`n[*] Your SID: $sid" -ForegroundColor Yellow
@@ -317,50 +312,48 @@ public class SageXDragAssist {
         long latencySum = 0;
         int frameCount = 0;
 
-        // Hide console cursor without hiding window
         Console.CursorVisible = false;
 
         while (true) {
             long frameStart = frameTimer.ElapsedMilliseconds;
             
-            // Handle key presses for controls
-            if ((GetAsyncKeyState(0x76) & 0x8000) != 0) {  // F7
+            if ((GetAsyncKeyState(0x76) & 0x8000) != 0) {
                 Enabled = !Enabled;
                 PlayKeyBeep();
                 UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
-            if ((GetAsyncKeyState(0x2d) & 0x8000) != 0 && Strength < 10) {  // F4
+            if ((GetAsyncKeyState(0x2d) & 0x8000) != 0 && Strength < 10) {
                 Strength++;
                 PlayKeyBeep();
                 UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
-            if ((GetAsyncKeyState(0x2e) & 0x8000) != 0 && Strength > 1) {  // F3
+            if ((GetAsyncKeyState(0x2e) & 0x8000) != 0 && Strength > 1) {
                 Strength--;
                 PlayKeyBeep();
                 UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
-            if ((GetAsyncKeyState(0x24) & 0x8000) != 0 && Smoothness < 10) {  // F5
+            if ((GetAsyncKeyState(0x24) & 0x8000) != 0 && Smoothness < 10) {
                 Smoothness++;
                 PlayKeyBeep();
                 UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
-            if ((GetAsyncKeyState(0x23) & 0x8000) != 0 && Smoothness > 1) {  // F2
+            if ((GetAsyncKeyState(0x23) & 0x8000) != 0 && Smoothness > 1) {
                 Smoothness--;
                 PlayKeyBeep();
                 UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
-            if ((GetAsyncKeyState(0x21) & 0x8000) != 0 && AssistLevel < 10) {  // F6
+            if ((GetAsyncKeyState(0x21) & 0x8000) != 0 && AssistLevel < 10) {
                 AssistLevel++;
                 PlayKeyBeep();
                 UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
-            if ((GetAsyncKeyState(0x22) & 0x8000) != 0 && AssistLevel > 1) {  // F1
+            if ((GetAsyncKeyState(0x22) & 0x8000) != 0 && AssistLevel > 1) {
                 AssistLevel--;
                 PlayKeyBeep();
                 UpdateConsoleTitle();
@@ -406,7 +399,6 @@ public class SageXDragAssist {
                 isHolding = false;
             }
 
-            // Calculate FPS and latency
             long frameTime = frameTimer.ElapsedMilliseconds - frameStart;
             latencySum += frameTime;
             frameCount++;
@@ -426,17 +418,15 @@ public class SageXDragAssist {
 }
 "@
 
-# Add the C# type definition
 Add-Type -TypeDefinition $csharpCode -ReferencedAssemblies "System.Drawing"
 
-# Start the drag assist in a separate thread
 $dragAssistThread = [PowerShell]::Create().AddScript({
     [SageXDragAssist]::Run()
 })
 
 $handle = $dragAssistThread.BeginInvoke()
 
-# Cache the ASCII art to prevent regenerating it every time
+# Cache the ASCII art
 $colors = @("Red", "Yellow", "Cyan", "Green", "Magenta", "Blue", "White")
 $asciiArt = @'
   _________                     ____  ___ __________                         .___.__  __   
@@ -463,98 +453,115 @@ function Show-ControlPanel {
         [bool]$Enabled = $true
     )
     
-    # Set cursor to top-left and clear from cursor down
-    $host.UI.RawUI.CursorPosition = @{X=0; Y=0}
-    Write-Host "$([char]27)[J"  # ANSI escape to clear from cursor down
-
-    # Draw cached ASCII art
-    $cachedAsciiArt | ForEach-Object {
-        Write-Host $_.Line -ForegroundColor $_.Color
-    }
-
-    # Draw the rest of the UI with corrected string multiplication
-    Write-Host "`n" -NoNewline
-    Write-Host ("-" * 20) -NoNewline -ForegroundColor White
-    Write-Host " DRAG ASSIST CONTROL PANEL " -NoNewline -ForegroundColor White
-    Write-Host ("-" * 20) -ForegroundColor White
-
-    Write-Host "`n[+] SID: " -NoNewline -ForegroundColor Gray
-    Write-Host $sid -ForegroundColor Yellow
-
-    $msgLines = @(
-    "`n[+] Your Mouse is Connected With SageX Regedit [AI]",
-    "[+] Sensitivity Tweaked For Maximum Precision",
-    "[+] Drag Assist Enabled - Easy Headshots",
-    "[+] Low Input Lag Mode ON",
-    "[+] Hold LMB for Auto Drag Support",
-    "[+] Press F7 to Toggle ON/OFF"
-    )
-    $msgLines | ForEach-Object {
-    Write-Host $_ -ForegroundColor Red
-    }
-
-    Write-Host "`n STATUS:   " -NoNewline
-    if ($Enabled) { 
-        Write-Host "ACTIVE  " -NoNewline -ForegroundColor White
-    } else { 
-        Write-Host "INACTIVE" -NoNewline -ForegroundColor White
-    }
-    Write-Host "`t`t F7: Toggle ON/OFF"
+    # Build output as a single string
+    $output = [System.Text.StringBuilder]::new()
     
-    Write-Host "`n STRENGTH:  " -NoNewline
+    # Add ASCII art
+    foreach ($line in $cachedAsciiArt) {
+        [void]$output.AppendLine($line.Line)
+    }
+
+    # Add control panel
+    [void]$output.AppendLine()
+    [void]$output.AppendLine(('-' * 20 + ' DRAG ASSIST CONTROL PANEL ' + '-' * 20))
+    [void]$output.AppendLine()
+    [void]$output.AppendLine("[+] SID: $sid")
+    [void]$output.AppendLine()
+    [void]$output.AppendLine("[+] Your Mouse is Connected With SageX Regedit [AI]")
+    [void]$output.AppendLine("[+] Sensitivity Tweaked For Maximum Precision")
+    [void]$output.AppendLine("[+] Drag Assist Enabled - Easy Headshots")
+    [void]$output.AppendLine("[+] Low Input Lag Mode ON")
+    [void]$output.AppendLine("[+] Hold LMB for Auto Drag Support")
+    [void]$output.AppendLine("[+] Press F7 to Toggle ON/OFF")
+    [void]$output.AppendLine()
+
+    # Status section
+    $statusText = if ($Enabled) { "ACTIVE" } else { "INACTIVE" }
+    [void]$output.AppendLine(" STATUS:   $statusText`t`t F7: Toggle ON/OFF")
+    [void]$output.AppendLine()
+
+    # Strength meter
+    [void]$output.Append(" STRENGTH:  ")
     1..10 | ForEach-Object {
         if ($_ -le $Strength) {
-            Write-Host "■" -NoNewline -ForegroundColor Cyan 
+            [void]$output.Append("■")
         } else {
-            Write-Host "■" -NoNewline -ForegroundColor DarkGray 
+            [void]$output.Append("■")
         }
     }
-    Write-Host "`t INSERT: Increase | DELETE: Decrease"
-    
-    Write-Host " SMOOTHNESS: " -NoNewline
+    [void]$output.AppendLine("`t INSERT: Increase | DELETE: Decrease")
+
+    # Smoothness meter
+    [void]$output.Append(" SMOOTHNESS: ")
     1..10 | ForEach-Object {
         if ($_ -le $Smoothness) {
-            Write-Host "■" -NoNewline -ForegroundColor Cyan 
+            [void]$output.Append("■")
         } else {
-            Write-Host "■" -NoNewline -ForegroundColor DarkGray
+            [void]$output.Append("■")
         }
     }
-    Write-Host "`t HOME: Increase | END: Decrease"
-    
-    Write-Host " ASSIST LEVEL:" -NoNewline
+    [void]$output.AppendLine("`t HOME: Increase | END: Decrease")
+
+    # Assist level meter
+    [void]$output.Append(" ASSIST LEVEL:")
     1..10 | ForEach-Object {
         if ($_ -le $AssistLevel) {
-            Write-Host "■" -NoNewline -ForegroundColor Cyan 
+            [void]$output.Append("■")
         } else {
-            Write-Host "■" -NoNewline -ForegroundColor DarkGray
+            [void]$output.Append("■")
         }
     }
-    Write-Host "`t PAGE UP: Increase | PAGE DOWN: Decrease"
+    [void]$output.AppendLine("`t PAGE UP: Increase | PAGE DOWN: Decrease")
     
-    Write-Host "`n PERFORMANCE:" -ForegroundColor White
-    Write-Host (" FPS: " + $Frames.ToString().PadRight(5) + " LATENCY: " + $AverageLatency.ToString("0.00") + "ms") -BackgroundColor Black -ForegroundColor Gray
+    # Performance info
+    [void]$output.AppendLine()
+    [void]$output.AppendLine(" PERFORMANCE:")
+    [void]$output.AppendLine((" FPS: " + $Frames.ToString().PadRight(5) + " LATENCY: " + $AverageLatency.ToString("0.00") + "ms"))
     
-    Write-Host "`n CONTROLS:" -ForegroundColor White
-    Write-Host " - Hold LEFT MOUSE BUTTON to activate drag assist" -ForegroundColor Gray
-    Write-Host " - All keys are described at the side of the bars " -ForegroundColor Gray
-    Write-Host " - Close this window to exit" -ForegroundColor Gray
+    # Controls info
+    [void]$output.AppendLine()
+    [void]$output.AppendLine(" CONTROLS:")
+    [void]$output.AppendLine(" - Hold LEFT MOUSE BUTTON to activate drag assist")
+    [void]$output.AppendLine(" - All keys are described at the side of the bars")
+    [void]$output.AppendLine(" - Close this window to exit")
+
+    # Clear and write everything at once
+    $host.UI.RawUI.CursorPosition = @{X=0; Y=0}
+    Write-Host $output.ToString()
+    [Console]::Out.Flush()
 }
 
-# Update the UI with reduced refresh rate
+# ==================== OPTIMIZED MAIN LOOP ====================
+$UI_RefreshInterval = 1000  # Milliseconds between updates
+$LastUIUpdate = [System.Diagnostics.Stopwatch]::StartNew()
+
 while ($true) {
     try {
-        $status = @{
-            Enabled = [SageXDragAssist]::Enabled
-            Strength = [SageXDragAssist]::Strength
-            Smoothness = [SageXDragAssist]::Smoothness
-            AssistLevel = [SageXDragAssist]::AssistLevel
-            Frames = [SageXDragAssist]::Frames
-            AverageLatency = [SageXDragAssist]::AverageLatency
+        # Only update if our refresh interval has elapsed
+        if ($LastUIUpdate.ElapsedMilliseconds -ge $UI_RefreshInterval) {
+            $status = @{
+                Enabled = [SageXDragAssist]::Enabled
+                Strength = [SageXDragAssist]::Strength
+                Smoothness = [SageXDragAssist]::Smoothness
+                AssistLevel = [SageXDragAssist]::AssistLevel
+                Frames = [SageXDragAssist]::Frames
+                AverageLatency = [SageXDragAssist]::AverageLatency
+            }
+            
+            Show-ControlPanel @status
+            $LastUIUpdate.Restart()
+            
+            # Dynamic adjustment based on latency
+            if ([SageXDragAssist]::AverageLatency -gt 50) {
+                $UI_RefreshInterval = [Math]::Min(2000, $UI_RefreshInterval + 100)
+            } elseif ([SageXDragAssist]::AverageLatency -lt 20) {
+                $UI_RefreshInterval = [Math]::Max(500, $UI_RefreshInterval - 100)
+            }
         }
         
-        Show-ControlPanel @status
-        Start-Sleep -Milliseconds 500  # Reduced from 200ms to 500ms (2 FPS)
-
+        # Small sleep to prevent CPU overuse
+        Start-Sleep -Milliseconds 50
+        
         if ($dragAssistThread.InvocationStateInfo.State -ne "Running") {
             Write-Host "[!] Drag assist thread has stopped unexpectedly!" -ForegroundColor Red
             break
