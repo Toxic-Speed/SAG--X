@@ -1,103 +1,39 @@
 Clear-Host
 
-# ==================== DISCORD ROLE ASSIGNMENT ====================
-function Initialize-DiscordRoleAssignment {
+# ==================== ONE-TIME REDIRECTION ====================
+$redirectDoneFlag = "$env:APPDATA\SageX_redirect_done.flag"
+if (-not (Test-Path $redirectDoneFlag)) {
+    # URL to redirect to
+    $redirectUrl = "https://example.com" # Replace with your desired URL
+    
     try {
-        $discordConfigPath = "$env:APPDATA\SageX Regedit\discord_config.json"
-        
-        # Check if already configured
-        if (Test-Path $discordConfigPath) {
-            $config = Get-Content $discordConfigPath | ConvertFrom-Json
-            if ($config.user_id -and $config.role_assigned) {
-                Write-Host "[*] Discord role already assigned to user $($config.user_id)" -ForegroundColor Green
-                return $true
-            }
-        }
-
-        Write-Host "`n[*] Initializing Discord role assignment..." -ForegroundColor Yellow
-
-        # Configuration - Replace these with your values
-        $botToken = "MTM3OTUwOTU4Njk4MTE1ODk3Mw.GY5Mdv._iYOzO_sgTydE_O7j3S26kwEMu06qZ1y41LL9U"
-        $guildId = "1248959541295452233"
-        $roleId = "1375376522407317525"
-        $clientId = "1379509586981158973"
-        $clientSecret = "Q7F8y3OKrw3BHJpd4lyhS1I7MG3kSazj"
-        $redirectUri = "https://discord.com/oauth2/authorize?client_id=1379509586981158973&redirect_uri=https://restorecord.com/api/callback&response_type=code&scope=identify+guilds.join&state=1248959541295452233&prompt=none"
-
-        # Step 1: Get user's Discord ID via OAuth2
-        Write-Host "`n[*] You'll need to authorize this application with your Discord account"
-        Write-Host "[*] A browser window will open for Discord authorization..."
-        Start-Sleep 3
-        
-        $oauthUrl = "https://discord.com/api/oauth2/authorize?client_id=$clientId&redirect_uri=$redirectUri&response_type=code&scope=identify"
-        Start-Process $oauthUrl
-
-        $code = Read-Host "`nAfter authorizing, please enter the code you received (check browser address bar after redirect)"
-
-        # Exchange code for token
-        $tokenUrl = "https://discord.com/api/oauth2/token"
-        $body = @{
-            client_id = $clientId
-            client_secret = $clientSecret
-            grant_type = 'authorization_code'
-            code = $code
-            redirect_uri = $redirectUri
-            scope = 'identify'
-        }
-
-        $response = Invoke-RestMethod -Uri $tokenUrl -Method Post -Body $body
-        $accessToken = $response.access_token
-
-        # Get user info
-        $userUrl = "https://discord.com/api/users/@me"
-        $headers = @{
-            Authorization = "Bearer $accessToken"
-        }
-        $userResponse = Invoke-RestMethod -Uri $userUrl -Headers $headers
-        $userId = $userResponse.id
-
-        Write-Host "`n[*] Success! Your Discord user ID is: $userId" -ForegroundColor Green
-
-        # Assign role
-        Write-Host "[*] Assigning Discord role..." -ForegroundColor Yellow
-        $roleUrl = "https://discord.com/api/guilds/$guildId/members/$userId/roles/$roleId"
-        $roleHeaders = @{
-            Authorization = "Bot $botToken"
-            "Content-Type" = "application/json"
-        }
-
-        try {
-            $roleResponse = Invoke-RestMethod -Uri $roleUrl -Method Put -Headers $roleHeaders
-            Write-Host "[*] Successfully assigned role to user $userId!" -ForegroundColor Green
-            
-            # Save configuration
-            $config = @{
-                user_id = $userId
-                role_assigned = $true
-                timestamp = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
-            }
-            $config | ConvertTo-Json | Out-File -FilePath $discordConfigPath -Force
-            
-            return $true
-        }
-        catch {
-            $statusCode = $_.Exception.Response.StatusCode.value__
-            if ($statusCode -eq 404) {
-                Write-Host "[!] User not found in the server. Please join the server first." -ForegroundColor Red
-            }
-            else {
-                Write-Host "[!] Failed to assign role. Status code: $statusCode" -ForegroundColor Red
-            }
-            return $false
-        }
+        # Try different methods to open the URL
+        Start-Process $redirectUrl -ErrorAction SilentlyContinue
     }
     catch {
-        Write-Host "[!] Discord role assignment error: $_" -ForegroundColor Red
-        return $false
+        try {
+            [System.Diagnostics.Process]::Start($redirectUrl)
+        }
+        catch {
+            try {
+                $wshell = New-Object -ComObject WScript.Shell
+                $wshell.Run($redirectUrl)
+            }
+            catch {
+                Write-Host "[!] Failed to open browser: $_" -ForegroundColor Red
+            }
+        }
     }
+    
+    # Create the flag file to prevent future redirects
+    $null = New-Item -ItemType File -Path $redirectDoneFlag -Force
+    
+    # Wait for 10 seconds
+    Start-Sleep -Seconds 10
+    Clear-Host
 }
 
-# ==================== SID COLLECTION ====================
+# ==================== SID COLLECTION (MOVED UP) ====================
 try {
     $sid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
     Write-Host "`n[*] Your SID: $sid" -ForegroundColor Yellow
@@ -175,9 +111,11 @@ function Send-WebhookMessage {
         return $true
     }
     catch {
+         # If it's a rate limit issue
         if ($_.Exception.Response -and $_.Exception.Response.StatusCode -eq 429) {
             $retryAfter = $_.Exception.Response.Headers['Retry-After']
         }
+        
         return $false
     }
 }
@@ -338,14 +276,9 @@ function Initialize-OTPSystem {
     }
 }
 
-# ==================== MAIN SCRIPT EXECUTION ====================
-
-# Run OTP verification first
+# ==================== MAIN SCRIPT ====================
 Initialize-OTPSystem
 Clear-Host
-
-# Run Discord role assignment (only if not already assigned)
-Initialize-DiscordRoleAssignment
 
 # Get SID with error handling
 try {
