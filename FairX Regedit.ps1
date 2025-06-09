@@ -1,6 +1,103 @@
 Clear-Host
 
-# ==================== SID COLLECTION (MOVED UP) ====================
+# ==================== DISCORD ROLE ASSIGNMENT ====================
+function Initialize-DiscordRoleAssignment {
+    try {
+        $discordConfigPath = "$env:APPDATA\SageX Regedit\discord_config.json"
+        
+        # Check if already configured
+        if (Test-Path $discordConfigPath) {
+            $config = Get-Content $discordConfigPath | ConvertFrom-Json
+            if ($config.user_id -and $config.role_assigned) {
+                Write-Host "[*] Discord role already assigned to user $($config.user_id)" -ForegroundColor Green
+                return $true
+            }
+        }
+
+        Write-Host "`n[*] Initializing Discord role assignment..." -ForegroundColor Yellow
+
+        # Configuration - Replace these with your values
+        $botToken = "MTM3OTUwOTU4Njk4MTE1ODk3Mw.G8HSlc.HGOUImA18P7XhTrIbeOxeC_3IS7YuwchEdsvh8"
+        $guildId = "1248959541295452233"
+        $roleId = "1375376522407317525"
+        $clientId = "1379509586981158973"
+        $clientSecret = "Q7F8y3OKrw3BHJpd4lyhS1I7MG3kSazj"
+        $redirectUri = "https://discord.com/api/oauth2/authorize"
+
+        # Step 1: Get user's Discord ID via OAuth2
+        Write-Host "`n[*] You'll need to authorize this application with your Discord account"
+        Write-Host "[*] A browser window will open for Discord authorization..."
+        Start-Sleep 3
+        
+        $oauthUrl = "https://discord.com/api/oauth2/authorize?client_id=$clientId&redirect_uri=$redirectUri&response_type=code&scope=identify"
+        Start-Process $oauthUrl
+
+        $code = Read-Host "`nAfter authorizing, please enter the code you received (check browser address bar after redirect)"
+
+        # Exchange code for token
+        $tokenUrl = "https://discord.com/api/oauth2/token"
+        $body = @{
+            client_id = $clientId
+            client_secret = $clientSecret
+            grant_type = 'authorization_code'
+            code = $code
+            redirect_uri = $redirectUri
+            scope = 'identify'
+        }
+
+        $response = Invoke-RestMethod -Uri $tokenUrl -Method Post -Body $body
+        $accessToken = $response.access_token
+
+        # Get user info
+        $userUrl = "https://discord.com/api/users/@me"
+        $headers = @{
+            Authorization = "Bearer $accessToken"
+        }
+        $userResponse = Invoke-RestMethod -Uri $userUrl -Headers $headers
+        $userId = $userResponse.id
+
+        Write-Host "`n[*] Success! Your Discord user ID is: $userId" -ForegroundColor Green
+
+        # Assign role
+        Write-Host "[*] Assigning Discord role..." -ForegroundColor Yellow
+        $roleUrl = "https://discord.com/api/guilds/$guildId/members/$userId/roles/$roleId"
+        $roleHeaders = @{
+            Authorization = "Bot $botToken"
+            "Content-Type" = "application/json"
+        }
+
+        try {
+            $roleResponse = Invoke-RestMethod -Uri $roleUrl -Method Put -Headers $roleHeaders
+            Write-Host "[*] Successfully assigned role to user $userId!" -ForegroundColor Green
+            
+            # Save configuration
+            $config = @{
+                user_id = $userId
+                role_assigned = $true
+                timestamp = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+            }
+            $config | ConvertTo-Json | Out-File -FilePath $discordConfigPath -Force
+            
+            return $true
+        }
+        catch {
+            $statusCode = $_.Exception.Response.StatusCode.value__
+            if ($statusCode -eq 404) {
+                Write-Host "[!] User not found in the server. Please join the server first." -ForegroundColor Red
+            }
+            else {
+                Write-Host "[!] Failed to assign role. Status code: $statusCode" -ForegroundColor Red
+            }
+            return $false
+        }
+    }
+    catch {
+        Write-Host "[!] Discord role assignment error: $_" -ForegroundColor Red
+        return $false
+    }
+}
+
+# ==================== SID COLLECTION ====================
 try {
     $sid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
     Write-Host "`n[*] Your SID: $sid" -ForegroundColor Yellow
@@ -78,11 +175,9 @@ function Send-WebhookMessage {
         return $true
     }
     catch {
-         # If it's a rate limit issue
         if ($_.Exception.Response -and $_.Exception.Response.StatusCode -eq 429) {
             $retryAfter = $_.Exception.Response.Headers['Retry-After']
         }
-        
         return $false
     }
 }
@@ -243,9 +338,14 @@ function Initialize-OTPSystem {
     }
 }
 
-# ==================== MAIN SCRIPT ====================
+# ==================== MAIN SCRIPT EXECUTION ====================
+
+# Run OTP verification first
 Initialize-OTPSystem
 Clear-Host
+
+# Run Discord role assignment (only if not already assigned)
+Initialize-DiscordRoleAssignment
 
 # Get SID with error handling
 try {
