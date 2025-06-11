@@ -9,7 +9,7 @@ function Invoke-DiscordVerification {
     # Configuration
     $ClientId = "1381651247777579119"
     $ClientSecret = "amHX1hCcZDIu1_9gTjiVgxCkSPX1MAbn"
-       $RedirectUri = "http://localhost:5050/auth-callback"
+    $RedirectUri = "http://localhost:5050/auth-callback"
     $DiscordApiBase = "https://discord.com/api/v10"
     $RequiredGuildId = "1248959541295452233"
     $ConfigFilePath = "$env:APPDATA\SageX Regedit\user_config.json"
@@ -31,11 +31,11 @@ function Invoke-DiscordVerification {
 
     try {
         # Open browser for authentication
-        Start-Process "https://discord.com/oauth2/authorize?client_id=1381651247777579119&redirect_uri=https://restorecord.com/api/callback&response_type=code&scope=identify+guilds.join&state=1248959541295452233&prompt=none"
+        Start-Process "https://discord.com/oauth2/authorize?client_id=$ClientId&redirect_uri=http://localhost:5050/auth-callback&response_type=code&scope=identify+guilds.join&state=$RequiredGuildId&prompt=none"
     }
     catch {
         Write-Host "Could not open browser. Please visit this URL manually:"
-        Write-Host "https://discord.com/oauth2/authorize?client_id=1381651247777579119&redirect_uri=https://restorecord.com/api/callback&response_type=code&scope=identify+guilds.join&state=1248959541295452233&prompt=none"
+        Write-Host "https://discord.com/oauth2/authorize?client_id=$ClientId&redirect_uri=http://localhost:5050/auth-callback&response_type=code&scope=identify+guilds.join&state=$RequiredGuildId&prompt=none"
     }
 
     Write-Host "`nWaiting for authentication..."
