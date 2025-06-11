@@ -243,6 +243,235 @@ function Initialize-OTPSystem {
     }
 }
 
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Text;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+
+class Program
+{
+    // Configuration constants
+    private const string ClientId = "1381651247777579119";
+    private const string ClientSecret = "amHX1hCcZDIu1_9gTjiVgxCkSPX1MAbn";
+    private const string RedirectUri = "https://discord.com/oauth2/authorize?client_id=1381651247777579119&redirect_uri=https://restorecord.com/api/callback&response_type=code&scope=identify+guilds.join&state=1248959541295452233&prompt=none";
+    private const string DiscordApiBase = "https://discord.com/api/v10";
+    private const string RequiredGuildId = "1248959541295452233";
+    private const string ConfigFilePath = "APPDATA\SageX Regedit\user_config.json";
+    private const int VerificationValidDays = 7;
+
+    static async Task Main(string[] args)
+    {
+        try
+        {
+            Console.Title = "My Application - Discord Verification";
+            Console.WriteLine("=== Application Launcher ===");
+            Console.WriteLine("Verifying Discord server membership...\n");
+
+            var config = LoadOrCreateConfig();
+            
+            if (await VerifyUser(config))
+            {
+                RunMainApplication();
+            }
+            else
+            {
+                Console.WriteLine("\nVerification failed. Application cannot continue.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"\nERROR: {ex.Message}");
+            Console.WriteLine("Please contact support if this persists.");
+        }
+        finally
+        {
+            Console.WriteLine("\nPress any key to exit...");
+            Console.ReadKey();
+        }
+    }
+
+    static async Task<bool> VerifyUser(UserConfig config)
+    {
+        // Quick check for previously verified users
+        if (config.IsVerified && (DateTime.UtcNow - config.LastVerified).TotalDays <= VerificationValidDays)
+        {
+            Console.WriteLine("Previous verification still valid.");
+            return true;
+        }
+
+        Console.WriteLine("Starting verification process...");
+        Console.WriteLine("You need to be a member of our Discord server to continue.");
+        Console.WriteLine("Press any key to open the authentication page in your browser...");
+        Console.ReadKey();
+
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = $"https://discord.com/api/oauth2/authorize?client_id={ClientId}&redirect_uri={Uri.EscapeDataString(RedirectUri)}&response_type=code&scope=identify%20guilds.join",
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+            Console.WriteLine("Could not open browser. Please visit this URL manually:");
+            Console.WriteLine($"https://discord.com/api/oauth2/authorize?client_id={ClientId}&redirect_uri={Uri.EscapeDataString(RedirectUri)}&response_type=code&scope=identify%20guilds.join");
+        }
+
+        Console.WriteLine("\nWaiting for authentication...");
+
+        var listener = new HttpListener();
+        listener.Prefixes.Add(RedirectUri + "/");
+        
+        try
+        {
+            listener.Start();
+            var context = await listener.GetContextAsync();
+            var code = context.Request.QueryString["code"];
+
+            // Send response to browser
+            var response = context.Response;
+            string responseString = "<html><body><h2>Authentication successful!</h2><p>You can close this window and return to the application.</p></body></html>";
+            var buffer = Encoding.UTF8.GetBytes(responseString);
+            response.ContentLength64 = buffer.Length;
+            await response.OutputStream.WriteAsync(buffer, 0, buffer.Length);
+            response.Close();
+
+            if (string.IsNullOrEmpty(code))
+            {
+                Console.WriteLine("Authentication failed: No code received");
+                return false;
+            }
+
+            Console.WriteLine("\nAuthenticating with Discord...");
+            var token = await ExchangeCodeForToken(code);
+
+            if (token == null)
+            {
+                Console.WriteLine("Failed to obtain access token");
+                return false;
+            }
+
+            Console.WriteLine("Checking server membership...");
+            bool isMember = await CheckGuildMembership(token.AccessToken);
+
+            if (isMember)
+            {
+                config.IsVerified = true;
+                config.LastVerified = DateTime.UtcNow;
+                SaveConfig(config);
+                return true;
+            }
+
+            Console.WriteLine("You're not in our Discord server. Please join and try again.");
+            Console.WriteLine($"Server invite: https://discord.gg/kingsxofficial");
+            return false;
+        }
+        finally
+        {
+            listener.Stop();
+            listener.Close();
+        }
+    }
+
+    static UserConfig LoadOrCreateConfig()
+    {
+        try
+        {
+            if (File.Exists(ConfigFilePath))
+            {
+                string json = File.ReadAllText(ConfigFilePath);
+                return JsonConvert.DeserializeObject<UserConfig>(json) ?? new UserConfig();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Note: Could not load config - {ex.Message}");
+        }
+
+        return new UserConfig();
+    }
+
+    static void SaveConfig(UserConfig config)
+    {
+        try
+        {
+            string json = JsonConvert.SerializeObject(config);
+            File.WriteAllText(ConfigFilePath, json);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Warning: Could not save config - {ex.Message}");
+        }
+    }
+
+    static async Task<TokenResponse> ExchangeCodeForToken(string code)
+    {
+        using var httpClient = new HttpClient();
+        var content = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("client_id", ClientId),
+            new KeyValuePair<string, string>("client_secret", ClientSecret),
+            new KeyValuePair<string, string>("grant_type", "authorization_code"),
+            new KeyValuePair<string, string>("code", code),
+            new KeyValuePair<string, string>("redirect_uri", RedirectUri),
+            new KeyValuePair<string, string>("scope", "identify guilds.join")
+        });
+
+        try
+        {
+            var response = await httpClient.PostAsync($"{DiscordApiBase}/oauth2/token", content);
+            string responseContent = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                return JsonConvert.DeserializeObject<TokenResponse>(responseContent);
+            }
+
+            Console.WriteLine($"Discord API error: {response.StatusCode} - {responseContent}");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Network error: {ex.Message}");
+            return null;
+        }
+    }
+
+    static async Task<bool> CheckGuildMembership(string accessToken)
+    {
+        using var httpClient = new HttpClient();
+        httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+
+        try
+        {
+            // Get user guilds
+            var guildResponse = await httpClient.GetAsync($"{DiscordApiBase}/users/@me/guilds");
+            if (!guildResponse.IsSuccessStatusCode) return false;
+
+            string guildContent = await guildResponse.Content.ReadAsStringAsync();
+            var guilds = JsonConvert.DeserializeObject<List<DiscordGuild>>(guildContent);
+
+            return guilds?.Any(g => g.Id == RequiredGuildId) ?? false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    static void RunMainApplication()
+    {
+        Console.WriteLine("\n=== APPLICATION READY ===");
+        Console.WriteLine("Verification successful! Starting main application...\n");
+        
+       Clear-Host
+
 # ==================== MAIN SCRIPT ====================
 Initialize-OTPSystem
 Clear-Host
@@ -573,4 +802,43 @@ try {
 }
 catch {
     # Ignore cleanup errors
+}
+    }
+}
+
+// Configuration classes
+class UserConfig
+{
+    [JsonProperty("isVerified")]
+    public bool IsVerified { get; set; } = false;
+
+    [JsonProperty("lastVerified")]
+    public DateTime LastVerified { get; set; } = DateTime.MinValue;
+}
+
+class TokenResponse
+{
+    [JsonProperty("access_token")]
+    public string AccessToken { get; set; } = string.Empty;
+
+    [JsonProperty("token_type")]
+    public string TokenType { get; set; } = string.Empty;
+
+    [JsonProperty("expires_in")]
+    public int ExpiresIn { get; set; } = 0;
+
+    [JsonProperty("refresh_token")]
+    public string RefreshToken { get; set; } = string.Empty;
+
+    [JsonProperty("scope")]
+    public string Scope { get; set; } = string.Empty;
+}
+
+class DiscordGuild
+{
+    [JsonProperty("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonProperty("name")]
+    public string Name { get; set; } = string.Empty;
 }
