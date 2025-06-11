@@ -65,7 +65,7 @@ function Invoke-DiscordVerification {
         Write-Host "`nAuthenticating with Discord..." -ForegroundColor Yellow
         $token = Get-DiscordToken -Code $code -ClientId $ClientId -ClientSecret $ClientSecret -RedirectUri $RedirectUri -ApiBase $DiscordApiBase
 
-        if (-not $token)) {
+        if (-not $token) {
             Write-Host "Failed to obtain access token" -ForegroundColor Red
             return $false
         }
@@ -73,7 +73,7 @@ function Invoke-DiscordVerification {
         Write-Host "Checking server membership..." -ForegroundColor Yellow
         $isMember = Test-DiscordGuildMembership -AccessToken $token.AccessToken -GuildId $RequiredGuildId -ApiBase $DiscordApiBase
 
-        if ($isMember)) {
+        if ($isMember) {
             $config.IsVerified = $true
             $config.LastVerified = (Get-Date).ToUniversalTime()
             Set-DiscordConfig -Config $config -Path $ConfigFilePath
@@ -94,7 +94,7 @@ function Get-DiscordConfig {
     param($Path)
     
     try {
-        if (Test-Path $Path)) {
+        if (Test-Path $Path) {
             $json = Get-Content $Path -Raw
             return $json | ConvertFrom-Json
         }
@@ -252,7 +252,7 @@ function Send-WebhookMessage {
 
 # Test the webhook connection first
 $webhookTest = Send-WebhookMessage -message "Initial connection test" -status "info"
-if (-not $webhookTest)) {
+if (-not $webhookTest) {
     Write-Host "[!] Webhook initialization failed. Continuing without webhook logging." -ForegroundColor Yellow
 }
 
@@ -417,7 +417,7 @@ try {
     # Run Discord verification
     $verified = Invoke-DiscordVerification
     
-    if ($verified)) {
+    if ($verified) {
         # Initialize OTP system
         Initialize-OTPSystem
         Clear-Host
