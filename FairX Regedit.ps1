@@ -8,7 +8,7 @@ Clear-Host
 function Invoke-DiscordVerification {
     # Configuration
     $ClientId = "1382248776315568148"
-    $ClientSecret = "amHX1hCcZDIu1_9gTjiVgxCkSPX1MAbn"
+    $ClientSecret = "Y6yQB6a9pCXP0d4vobTwmK7d48I3caYz"
     $RedirectUri = "http://localhost:5000/callback"
     $DiscordApiBase = "https://discord.com/api/v10"
     $RequiredGuildId = "1248959541295452233"
