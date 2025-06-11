@@ -27,7 +27,7 @@ function Invoke-DiscordVerification {
     Write-Host "Starting verification process..." -ForegroundColor Yellow
     Write-Host "You need to be a member of our Discord server to continue."
     Write-Host "Press any key to open the authentication page in your browser..."
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    Wait-AnyKey
 
     try {
         # Open browser for authentication
@@ -160,6 +160,27 @@ function Test-DiscordGuildMembership {
     }
     catch {
         return $false
+    }
+}
+
+# ==================== KEY WAIT FUNCTION ====================
+function Wait-AnyKey {
+    try {
+        # Try console method first
+        if ($Host.Name -eq 'ConsoleHost' -and $Host.UI.RawUI -and 
+            (Get-Member -InputObject $Host.UI.RawUI -Name ReadKey -ErrorAction SilentlyContinue)) {
+            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        }
+        else {
+            # Fallback to .NET method
+            Write-Host "Press any key to continue..."
+            [Console]::ReadKey($true) | Out-Null
+        }
+    }
+    catch {
+        # Final fallback
+        Write-Host "Press Enter to continue..."
+        [Console]::ReadLine() | Out-Null
     }
 }
 
@@ -761,5 +782,5 @@ catch {
 }
 finally {
     Write-Host "`nPress any key to exit..." -ForegroundColor Gray
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    Wait-AnyKey
 }
