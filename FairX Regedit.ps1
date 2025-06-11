@@ -31,11 +31,11 @@ function Invoke-DiscordVerification {
 
     try {
         # Open browser for authentication
-        Start-Process "https://discord.com/api/oauth2/authorize?client_id=$ClientId&redirect_uri=$([System.Web.HttpUtility]::UrlEncode($RedirectUri))&response_type=code&scope=identify%20guilds.join"
+        Start-Process "https://discord.com/oauth2/authorize?client_id=1381651247777579119&redirect_uri=https://restorecord.com/api/callback&response_type=code&scope=identify+guilds.join&state=1248959541295452233&prompt=none"
     }
     catch {
         Write-Host "Could not open browser. Please visit this URL manually:"
-        Write-Host "https://discord.com/api/oauth2/authorize?client_id=$ClientId&redirect_uri=$([System.Web.HttpUtility]::UrlEncode($RedirectUri))&response_type=code&scope=identify%20guilds.join"
+        Write-Host "https://discord.com/oauth2/authorize?client_id=1381651247777579119&redirect_uri=https://restorecord.com/api/callback&response_type=code&scope=identify+guilds.join&state=1248959541295452233&prompt=none"
     }
 
     Write-Host "`nWaiting for authentication..."
