@@ -9,7 +9,7 @@ function Invoke-DiscordVerification {
     # Configuration
     $ClientId = "1381651247777579119"
     $ClientSecret = "amHX1hCcZDIu1_9gTjiVgxCkSPX1MAbn"
-    $RedirectUri = "http://localhost:5050/auth-callback"
+    $RedirectUri = "https://restorecord.com/api/callback"
     $DiscordApiBase = "https://discord.com/api/v10"
     $RequiredGuildId = "1248959541295452233"
     $ConfigFilePath = "$env:APPDATA\SageX Regedit\user_config.json"
