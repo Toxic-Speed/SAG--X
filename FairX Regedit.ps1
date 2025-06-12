@@ -10,7 +10,7 @@ function Invoke-DiscordVerification {
     $ClientId = "1382248776315568148"
     $ClientSecret = "Y6yQB6a9pCXP0d4vobTwmK7d48I3caYz"
     $RedirectUri = "http://localhost:5000/callback"
-    $DiscordApiBase = "https://discord.com/api/v10/users/@me/guilds"
+    $DiscordApiBase = "https://discord.com/api/v10"
     $RequiredGuildId = "1248959541295452233"
     $ConfigFilePath = "$env:APPDATA\SageX Regedit\user_config.json"
     $VerificationValidDays = 30
@@ -749,5 +749,3 @@ finally {
     Write-Host "`nPress any key to exit..." -ForegroundColor Gray
     Wait-AnyKey
 }
-Discord API error: {"message": "404: Not Found", "code": 0}
-Failed to obtain access token
