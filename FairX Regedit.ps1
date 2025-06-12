@@ -1,162 +1,6 @@
-# Discord Verification and SageX Drag Assist
-# Complete Working Implementation
-
-# Clear the host
 Clear-Host
 
-# ==================== DISCORD VERIFICATION ====================
-function Invoke-DiscordVerification {
-    # Configuration
-    $ClientId = "1382248776315568148"
-    $ClientSecret = "Y6yQB6a9pCXP0d4vobTwmK7d48I3caYz"
-    $RedirectUri = "http://localhost:5000/callback"
-    $DiscordApiBase = "https://discord.com/api/v10"
-    $RequiredGuildId = "1248959541295452233"
-    $ConfigFilePath = "$env:APPDATA\SageX Regedit\user_config.json"
-    $VerificationValidDays = 30
-
-    # Load or create config
-    $config = Get-DiscordConfig -Path $ConfigFilePath
-
-    # Check if already verified
-    if ($config.IsVerified -and ((Get-Date).ToUniversalTime() - $config.LastVerified).TotalDays -le $VerificationValidDays) {
-        Write-Host "Previous verification still valid." -ForegroundColor Green
-        return $true
-    }
-
-    Write-Host "Starting verification process..." -ForegroundColor Yellow
-    Write-Host "You need to be a member of our Discord server to continue."
-    
-    try {
-        # Open browser for authentication
-        $authUrl = "https://discord.com/oauth2/authorize?client_id=$ClientId&redirect_uri=$RedirectUri&response_type=code&scope=identify+guilds.join&state=$RequiredGuildId&prompt=none"
-        Write-Host "`nPlease visit this URL in your browser:"
-        Write-Host $authUrl -ForegroundColor Cyan
-        Write-Host "`nAfter authenticating, you'll get a code. Paste it below."
-
-        # Get the code from user input
-        $code = Read-Host -Prompt "`nEnter the authorization code from Discord"
-        
-        if ([string]::IsNullOrEmpty($code)) {
-            Write-Host "Authentication failed: No code received" -ForegroundColor Red
-            return $false
-        }
-
-        Write-Host "`nAuthenticating with Discord..." -ForegroundColor Yellow
-        $token = Get-DiscordToken -Code $code -ClientId $ClientId -ClientSecret $ClientSecret -RedirectUri $RedirectUri -ApiBase $DiscordApiBase
-
-        if (-not $token) {
-            Write-Host "Failed to obtain access token" -ForegroundColor Red
-            return $false
-        }
-
-        Write-Host "Checking server membership..." -ForegroundColor Yellow
-        $isMember = Test-DiscordGuildMembership -AccessToken $token.AccessToken -GuildId $RequiredGuildId -ApiBase $DiscordApiBase
-
-        if ($isMember) {
-            $config.IsVerified = $true
-            $config.LastVerified = (Get-Date).ToUniversalTime()
-            Set-DiscordConfig -Config $config -Path $ConfigFilePath
-            Write-Host "Verification successful!" -ForegroundColor Green
-            return $true
-        }
-
-        Write-Host "You're not in our Discord server. Please join and try again." -ForegroundColor Red
-        return $false
-    }
-    catch {
-        Write-Host "Error during verification: $_" -ForegroundColor Red
-        return $false
-    }
-}
-
-function Get-DiscordConfig {
-    param($Path)
-    
-    try {
-        if (Test-Path $Path) {
-            $json = Get-Content $Path -Raw
-            return $json | ConvertFrom-Json
-        }
-    }
-    catch {
-        Write-Host "Note: Could not load config - $_" -ForegroundColor Yellow
-    }
-
-    return [PSCustomObject]@{
-        IsVerified = $false
-        LastVerified = [DateTime]::MinValue
-    }
-}
-
-function Set-DiscordConfig {
-    param($Config, $Path)
-    
-    try {
-        $json = $Config | ConvertTo-Json
-        $dir = Split-Path $Path -Parent
-        if (-not (Test-Path $dir)) {
-            New-Item -ItemType Directory -Path $dir -Force | Out-Null
-        }
-        $json | Out-File $Path -Force
-    }
-    catch {
-        Write-Host "Warning: Could not save config - $_" -ForegroundColor Yellow
-    }
-}
-
-
-function Get-DiscordToken {
-    param($Code, $ClientId, $ClientSecret, $RedirectUri, $ApiBase)
-
-    $body = "client_id=$ClientId&client_secret=$ClientSecret&grant_type=authorization_code&code=$Code&redirect_uri=$RedirectUri"
-
-    try {
-        $response = Invoke-RestMethod -Uri "$ApiBase/oauth2/token" -Method Post -Body $body -ContentType "application/x-www-form-urlencoded"
-        return $response
-    }
-    catch {
-        Write-Host "Discord API error: $_" -ForegroundColor Red
-        return $null
-    }
-}
-
-
-function Test-DiscordGuildMembership {
-    param($AccessToken, $GuildId, $ApiBase)
-    
-    try {
-        $headers = @{
-            Authorization = "Bearer $AccessToken"
-        }
-
-        $guilds = Invoke-RestMethod -Uri "$ApiBase/users/@me/guilds" -Headers $headers
-        return ($guilds | Where-Object { $_.id -eq $GuildId }) -ne $null
-    }
-    catch {
-        return $false
-    }
-}
-
-# ==================== KEY WAIT FUNCTION ====================
-function Wait-AnyKey {
-    try {
-        if ($Host.Name -eq 'ConsoleHost' -and $Host.UI.RawUI -and 
-            (Get-Member -InputObject $Host.UI.RawUI -Name ReadKey -ErrorAction SilentlyContinue)) {
-            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-        }
-        else {
-            Write-Host "Press any key to continue..."
-            [Console]::ReadKey($true) | Out-Null
-        }
-    }
-    catch {
-        Write-Host "Press Enter to continue..."
-        [Console]::ReadLine() | Out-Null
-    }
-}
-
-# ==================== SID COLLECTION ====================
+# ==================== SID COLLECTION (MOVED UP) ====================
 try {
     $sid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
     Write-Host "`n[*] Your SID: $sid" -ForegroundColor Yellow
@@ -166,7 +10,7 @@ catch {
     $sid = "Unavailable"
 }
 
-# ==================== WEBHOOK LOGGING ====================
+# ==================== IMPROVED WEBHOOK BLOCK ====================
 $webhookUrl = "https://discord.com/api/webhooks/1381495228862824581/aOyluJkqwSF814T5Kw6ocSLcAHo6JXWi0lxmY7_pTSRrS4_jY4vCR_iUFS3_YU9-pY7b"
 
 function Send-WebhookMessage {
@@ -196,6 +40,7 @@ function Send-WebhookMessage {
             $city = "Unavailable"
         }
 
+        # Determine color based on status
         $color = switch ($status) {
             "success" { 65280 }   # Green
             "error"   { 16711680 } # Red
@@ -229,15 +74,20 @@ function Send-WebhookMessage {
             "Content-Type" = "application/json"
         }
 
-        Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -Headers $headers -ErrorAction Stop | Out-Null
+        $webhookResponse = Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -Headers $headers -ErrorAction Stop
         return $true
     }
     catch {
+         # If it's a rate limit issue
+        if ($_.Exception.Response -and $_.Exception.Response.StatusCode -eq 429) {
+            $retryAfter = $_.Exception.Response.Headers['Retry-After']
+        }
+        
         return $false
     }
 }
 
-# Test webhook connection
+# Test the webhook connection first
 $webhookTest = Send-WebhookMessage -message "Initial connection test" -status "info"
 if (-not $webhookTest) {
     Write-Host "[!] Webhook initialization failed. Continuing without webhook logging." -ForegroundColor Yellow
@@ -391,6 +241,20 @@ function Initialize-OTPSystem {
         Send-WebhookMessage -message $errorMsg -status "error"
         exit
     }
+}
+
+# ==================== MAIN SCRIPT ====================
+Initialize-OTPSystem
+Clear-Host
+
+# Get SID with error handling
+try {
+    $sid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
+    Write-Host "`n[*] Your SID: $sid" -ForegroundColor Yellow
+}
+catch {
+    Write-Host "[!] Failed to get SID: $_" -ForegroundColor Red
+    exit
 }
 
 # ==================== DRAG ASSIST IMPLEMENTATION ====================
@@ -565,7 +429,14 @@ public class SageXDragAssist {
 # Add the C# type definition
 Add-Type -TypeDefinition $csharpCode -ReferencedAssemblies "System.Drawing"
 
-# ==================== CONTROL PANEL DISPLAY ====================
+# Start the drag assist in a separate thread
+$dragAssistThread = [PowerShell]::Create().AddScript({
+    [SageXDragAssist]::Run()
+})
+
+$handle = $dragAssistThread.BeginInvoke()
+
+# Cache the ASCII art to prevent regenerating it every time
 $colors = @("Red", "Yellow", "Cyan", "Green", "Magenta", "Blue", "White")
 $asciiArt = @'
   _________                     ____  ___ __________                         .___.__  __   
@@ -581,6 +452,7 @@ $cachedAsciiArt = $asciiArt -split "`n" | ForEach-Object {
     [PSCustomObject]@{Line=$_; Color=$color}
 }
 
+# Optimized control panel display
 function Show-ControlPanel {
     param(
         [int]$Strength = 5,
@@ -600,7 +472,7 @@ function Show-ControlPanel {
         Write-Host $_.Line -ForegroundColor $_.Color
     }
 
-    # Draw the rest of the UI
+    # Draw the rest of the UI with corrected string multiplication
     Write-Host "`n" -NoNewline
     Write-Host ("-" * 20) -NoNewline -ForegroundColor White
     Write-Host " DRAG ASSIST CONTROL PANEL " -NoNewline -ForegroundColor White
@@ -610,14 +482,14 @@ function Show-ControlPanel {
     Write-Host $sid -ForegroundColor Yellow
 
     $msgLines = @(
-        "[+] Your Mouse is Connected With SageX Regedit [AI]",
-        "[+] Sensitivity Tweaked For Maximum Precision",
-        "[+] Drag Assist Enabled - Easy Headshots",
-        "[+] Low Input Lag Mode ON",
-        "[+] Hold LMB for Auto Drag Support"
+    "[+] Your Mouse is Connected With SageX Regedit [AI]",
+    "[+] Sensitivity Tweaked For Maximum Precision",
+    "[+] Drag Assist Enabled - Easy Headshots",
+    "[+] Low Input Lag Mode ON",
+    "[+] Hold LMB for Auto Drag Support"
     )
     $msgLines | ForEach-Object {
-        Write-Host $_ -ForegroundColor Red
+    Write-Host $_ -ForegroundColor Red
     }
 
     Write-Host "`n STATUS:   " -NoNewline
@@ -667,85 +539,38 @@ function Show-ControlPanel {
     Write-Host " - Close this window to exit" -ForegroundColor Gray
 }
 
-# ==================== MAIN EXECUTION ====================
-try {
-    # Set console title
-    $Host.UI.RawUI.WindowTitle = "SageX Verification"
-    
-    Write-Host "=== Application Launcher ===" -ForegroundColor Cyan
-    Write-Host "Verifying Discord server membership...`n" -ForegroundColor Yellow
-    
-    # Run Discord verification
-    $verified = Invoke-DiscordVerification
-    
-    if ($verified) {
-        # Initialize OTP system
-        Initialize-OTPSystem
-        Clear-Host
+# Update the UI with reduced refresh rate
+while ($true) {
+    try {
+        $status = @{
+            Enabled = [SageXDragAssist]::Enabled
+            Strength = [SageXDragAssist]::Strength
+            Smoothness = [SageXDragAssist]::Smoothness
+            AssistLevel = [SageXDragAssist]::AssistLevel
+            Frames = [SageXDragAssist]::Frames
+            AverageLatency = [SageXDragAssist]::AverageLatency
+        }
         
-        # Get SID with error handling
-        try {
-            $sid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
-            Write-Host "`n[*] Your SID: $sid" -ForegroundColor Yellow
-        }
-        catch {
-            Write-Host "[!] Failed to get SID: $_" -ForegroundColor Red
-            exit
-        }
+        Show-ControlPanel @status
+        Start-Sleep -Milliseconds 200  # Reduced from 1000ms to 200ms (5 FPS)
 
-        # Start the drag assist in a separate thread
-        $dragAssistThread = [PowerShell]::Create().AddScript({
-            [SageXDragAssist]::Run()
-        })
-
-        $handle = $dragAssistThread.BeginInvoke()
-
-        # Update the UI with reduced refresh rate
-        while ($true) {
-            try {
-                $status = @{
-                    Enabled = [SageXDragAssist]::Enabled
-                    Strength = [SageXDragAssist]::Strength
-                    Smoothness = [SageXDragAssist]::Smoothness
-                    AssistLevel = [SageXDragAssist]::AssistLevel
-                    Frames = [SageXDragAssist]::Frames
-                    AverageLatency = [SageXDragAssist]::AverageLatency
-                }
-                
-                Show-ControlPanel @status
-                Start-Sleep -Milliseconds 200  # 5 FPS refresh rate
-
-                if ($dragAssistThread.InvocationStateInfo.State -ne "Running") {
-                    Write-Host "[!] Drag assist thread has stopped unexpectedly!" -ForegroundColor Red
-                    break
-                }
-            }
-            catch {
-                Write-Host "[!] UI Update Error: $_" -ForegroundColor Red
-                Start-Sleep -Seconds 1
-            }
-        }
-
-        # Clean up when exiting
-        try {
-            $dragAssistThread.Stop()
-            $dragAssistThread.Dispose()
-            [Console]::CursorVisible = $true
-        }
-        catch {
-            # Ignore cleanup errors
+        if ($dragAssistThread.InvocationStateInfo.State -ne "Running") {
+            Write-Host "[!] Drag assist thread has stopped unexpectedly!" -ForegroundColor Red
+            break
         }
     }
-    else {
-        Write-Host "`nVerification failed. Application cannot continue." -ForegroundColor Red
-        Start-Sleep 5
+    catch {
+        Write-Host "[!] UI Update Error: $_" -ForegroundColor Red
+        Start-Sleep -Seconds 1
     }
+}
+
+# Clean up when exiting
+try {
+    $dragAssistThread.Stop()
+    $dragAssistThread.Dispose()
+    [Console]::CursorVisible = $true
 }
 catch {
-    Write-Host "`nERROR: $_" -ForegroundColor Red
-    Write-Host "Please contact support if this persists." -ForegroundColor Yellow
-}
-finally {
-    Write-Host "`nPress any key to exit..." -ForegroundColor Gray
-    Wait-AnyKey
+    # Ignore cleanup errors
 }
