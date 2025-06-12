@@ -10,6 +10,7 @@ function Invoke-DiscordVerification {
     $ClientId = "1382248776315568148"
     $ClientSecret = "Y6yQB6a9pCXP0d4vobTwmK7d48I3caYz"
     $RedirectUri = "http://localhost:5000/callback"
+    $DiscordApiBase = "https://discord.com/api/v10/users/@me/guilds"
     $RequiredGuildId = "1248959541295452233"
     $ConfigFilePath = "$env:APPDATA\SageX Regedit\user_config.json"
     $VerificationValidDays = 30
@@ -42,7 +43,7 @@ function Invoke-DiscordVerification {
         }
 
         Write-Host "`nAuthenticating with Discord..." -ForegroundColor Yellow
-        $token = Get-DiscordToken -Code $code -ClientId $ClientId -ClientSecret $ClientSecret -RedirectUri $RedirectUri
+        $token = Get-DiscordToken -Code $code -ClientId $ClientId -ClientSecret $ClientSecret -RedirectUri $RedirectUri -ApiBase $DiscordApiBase
 
         if (-not $token) {
             Write-Host "Failed to obtain access token" -ForegroundColor Red
@@ -50,7 +51,7 @@ function Invoke-DiscordVerification {
         }
 
         Write-Host "Checking server membership..." -ForegroundColor Yellow
-        $isMember = Test-DiscordGuildMembership -AccessToken $token.access_token -GuildId $RequiredGuildId
+        $isMember = Test-DiscordGuildMembership -AccessToken $token.AccessToken -GuildId $RequiredGuildId -ApiBase $DiscordApiBase
 
         if ($isMember) {
             $config.IsVerified = $true
@@ -104,51 +105,35 @@ function Set-DiscordConfig {
     }
 }
 
+
 function Get-DiscordToken {
-    param($Code, $ClientId, $ClientSecret, $RedirectUri)
-    
-    $body = @{
-        client_id = $ClientId
-        client_secret = $ClientSecret
-        grant_type = "authorization_code"
-        code = $Code
-        redirect_uri = $RedirectUri
-        scope = "identify guilds.join"
-    }
+    param($Code, $ClientId, $ClientSecret, $RedirectUri, $ApiBase)
+
+    $body = "client_id=$ClientId&client_secret=$ClientSecret&grant_type=authorization_code&code=$Code&redirect_uri=$RedirectUri&scope=identify%20guilds.join"
 
     try {
-        $response = Invoke-RestMethod -Uri "https://discord.com/api/oauth2/token" `
-            -Method Post `
-            -Body $body `
-            -ContentType "application/x-www-form-urlencoded"
+        $response = Invoke-RestMethod -Uri "$ApiBase/oauth2/token" -Method Post -Body $body -ContentType "application/x-www-form-urlencoded"
         return $response
     }
     catch {
-        Write-Host "Discord API error: $($_.Exception.Response.StatusDescription)" -ForegroundColor Red
-        if ($_.Exception.Response) {
-            $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
-            $reader.BaseStream.Position = 0
-            $reader.DiscardBufferedData()
-            $responseBody = $reader.ReadToEnd()
-            Write-Host "Detailed error: $responseBody" -ForegroundColor Red
-        }
+        Write-Host "Discord API error: $_" -ForegroundColor Red
         return $null
     }
 }
 
+
 function Test-DiscordGuildMembership {
-    param($AccessToken, $GuildId)
+    param($AccessToken, $GuildId, $ApiBase)
     
     try {
         $headers = @{
             Authorization = "Bearer $AccessToken"
         }
 
-        $guilds = Invoke-RestMethod -Uri "https://discord.com/api/v10/users/@me/guilds" -Headers $headers
+        $guilds = Invoke-RestMethod -Uri "$ApiBase/users/@me/guilds" -Headers $headers
         return ($guilds | Where-Object { $_.id -eq $GuildId }) -ne $null
     }
     catch {
-        Write-Host "Error checking guild membership: $_" -ForegroundColor Red
         return $false
     }
 }
@@ -764,3 +749,5 @@ finally {
     Write-Host "`nPress any key to exit..." -ForegroundColor Gray
     Wait-AnyKey
 }
+Discord API error: {"message": "404: Not Found", "code": 0}
+Failed to obtain access token
