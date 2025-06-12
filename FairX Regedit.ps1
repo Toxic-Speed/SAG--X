@@ -107,16 +107,33 @@ function Set-DiscordConfig {
 
 
 function Get-DiscordToken {
-    param($Code, $ClientId, $ClientSecret, $RedirectUri, $ApiBase)
-
-    $body = "client_id=$ClientId&client_secret=$ClientSecret&grant_type=authorization_code&code=$Code&redirect_uri=$RedirectUri&scope=identify%20guilds.join"
+    param($Code, $ClientId, $ClientSecret, $RedirectUri)
+    
+    $body = @{
+        client_id = $ClientId
+        client_secret = $ClientSecret
+        grant_type = "authorization_code"
+        code = $Code
+        redirect_uri = $RedirectUri
+        scope = "identify guilds.join"
+    }
 
     try {
-        $response = Invoke-RestMethod -Uri "$ApiBase/oauth2/token" -Method Post -Body $body -ContentType "application/x-www-form-urlencoded"
+        $response = Invoke-RestMethod -Uri "https://discord.com/api/oauth2/token" `
+            -Method Post `
+            -Body $body `
+            -ContentType "application/x-www-form-urlencoded"
         return $response
     }
     catch {
-        Write-Host "Discord API error: $_" -ForegroundColor Red
+        Write-Host "Discord API error: $($_.Exception.Response.StatusDescription)" -ForegroundColor Red
+        if ($_.Exception.Response) {
+            $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+            $reader.BaseStream.Position = 0
+            $reader.DiscardBufferedData()
+            $responseBody = $reader.ReadToEnd()
+            Write-Host "Detailed error: $responseBody" -ForegroundColor Red
+        }
         return $null
     }
 }
