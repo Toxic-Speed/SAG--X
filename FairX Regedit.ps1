@@ -109,7 +109,7 @@ function Set-DiscordConfig {
 function Get-DiscordToken {
     param($Code, $ClientId, $ClientSecret, $RedirectUri, $ApiBase)
 
-    $body = "client_id=$ClientId&client_secret=$ClientSecret&grant_type=authorization_code&code=$Code&redirect_uri=$RedirectUri&scope=identify%20guilds.join"
+    $body = "client_id=$ClientId&client_secret=$ClientSecret&grant_type=authorization_code&code=$Code&redirect_uri=$RedirectUri"
 
     try {
         $response = Invoke-RestMethod -Uri "$ApiBase/oauth2/token" -Method Post -Body $body -ContentType "application/x-www-form-urlencoded"
