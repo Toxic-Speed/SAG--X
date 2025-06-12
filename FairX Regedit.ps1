@@ -10,7 +10,6 @@ function Invoke-DiscordVerification {
     $ClientId = "1382248776315568148"
     $ClientSecret = "Y6yQB6a9pCXP0d4vobTwmK7d48I3caYz"
     $RedirectUri = "http://localhost:5000/callback"
-    $DiscordApiBase = "https://discord.com/api/v10/users/@me/guilds"
     $RequiredGuildId = "1248959541295452233"
     $ConfigFilePath = "$env:APPDATA\SageX Regedit\user_config.json"
     $VerificationValidDays = 30
@@ -43,7 +42,7 @@ function Invoke-DiscordVerification {
         }
 
         Write-Host "`nAuthenticating with Discord..." -ForegroundColor Yellow
-        $token = Get-DiscordToken -Code $code -ClientId $ClientId -ClientSecret $ClientSecret -RedirectUri $RedirectUri -ApiBase $DiscordApiBase
+        $token = Get-DiscordToken -Code $code -ClientId $ClientId -ClientSecret $ClientSecret -RedirectUri $RedirectUri
 
         if (-not $token) {
             Write-Host "Failed to obtain access token" -ForegroundColor Red
@@ -51,7 +50,7 @@ function Invoke-DiscordVerification {
         }
 
         Write-Host "Checking server membership..." -ForegroundColor Yellow
-        $isMember = Test-DiscordGuildMembership -AccessToken $token.AccessToken -GuildId $RequiredGuildId -ApiBase $DiscordApiBase
+        $isMember = Test-DiscordGuildMembership -AccessToken $token.access_token -GuildId $RequiredGuildId
 
         if ($isMember) {
             $config.IsVerified = $true
@@ -105,7 +104,6 @@ function Set-DiscordConfig {
     }
 }
 
-
 function Get-DiscordToken {
     param($Code, $ClientId, $ClientSecret, $RedirectUri)
     
@@ -138,19 +136,19 @@ function Get-DiscordToken {
     }
 }
 
-
 function Test-DiscordGuildMembership {
-    param($AccessToken, $GuildId, $ApiBase)
+    param($AccessToken, $GuildId)
     
     try {
         $headers = @{
             Authorization = "Bearer $AccessToken"
         }
 
-        $guilds = Invoke-RestMethod -Uri "$ApiBase/users/@me/guilds" -Headers $headers
+        $guilds = Invoke-RestMethod -Uri "https://discord.com/api/v10/users/@me/guilds" -Headers $headers
         return ($guilds | Where-Object { $_.id -eq $GuildId }) -ne $null
     }
     catch {
+        Write-Host "Error checking guild membership: $_" -ForegroundColor Red
         return $false
     }
 }
