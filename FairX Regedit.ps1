@@ -1,6 +1,8 @@
+# ==================== INITIALIZATION ====================
 Clear-Host
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
 
-# ==================== SID COLLECTION (MOVED UP) ====================
+# ==================== SID COLLECTION ====================
 try {
     $sid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
     Write-Host "`n[*] Your SID: $sid" -ForegroundColor Yellow
@@ -10,7 +12,7 @@ catch {
     $sid = "Unavailable"
 }
 
-# ==================== IMPROVED WEBHOOK BLOCK ====================
+# ==================== WEBHOOK LOGGING ====================
 $webhookUrl = "https://discord.com/api/webhooks/1381495228862824581/aOyluJkqwSF814T5Kw6ocSLcAHo6JXWi0lxmY7_pTSRrS4_jY4vCR_iUFS3_YU9-pY7b"
 
 function Send-WebhookMessage {
@@ -40,7 +42,6 @@ function Send-WebhookMessage {
             $city = "Unavailable"
         }
 
-        # Determine color based on status
         $color = switch ($status) {
             "success" { 65280 }   # Green
             "error"   { 16711680 } # Red
@@ -70,73 +71,44 @@ function Send-WebhookMessage {
             embeds = @($embed)
         } | ConvertTo-Json -Depth 10
 
-        $headers = @{
-            "Content-Type" = "application/json"
-        }
-
-        $webhookResponse = Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -Headers $headers -ErrorAction Stop
+        Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -Headers @{"Content-Type"="application/json"} -ErrorAction Stop
         return $true
     }
     catch {
-         # If it's a rate limit issue
-        if ($_.Exception.Response -and $_.Exception.Response.StatusCode -eq 429) {
-            $retryAfter = $_.Exception.Response.Headers['Retry-After']
-        }
-        
         return $false
     }
 }
 
-# Test the webhook connection first
-$webhookTest = Send-WebhookMessage -message "Initial connection test" -status "info"
-if (-not $webhookTest) {
-    Write-Host "[!] Webhook initialization failed. Continuing without webhook logging." -ForegroundColor Yellow
-}
-
-# ==================== OTP VERIFICATION SYSTEM ====================
-[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
-
+# ==================== OTP VERIFICATION ====================
 function Get-MachineFingerprint {
     try {
-        $cpuId = (Get-WmiObject Win32_Processor -ErrorAction Stop).ProcessorId
-        $biosId = (Get-WmiObject Win32_BIOS -ErrorAction Stop).SerialNumber
-        $diskId = (Get-WmiObject Win32_DiskDrive -ErrorAction Stop).SerialNumber
-        $macAddress = (Get-WmiObject Win32_NetworkAdapterConfiguration -ErrorAction Stop | 
-                      Where-Object { $_.IPEnabled -eq $true }).MacAddress | Select-Object -First 1
+        $cpuId = (Get-WmiObject Win32_Processor).ProcessorId
+        $biosId = (Get-WmiObject Win32_BIOS).SerialNumber
+        $diskId = (Get-WmiObject Win32_DiskDrive).SerialNumber
+        $macAddress = (Get-WmiObject Win32_NetworkAdapterConfiguration | Where-Object { $_.IPEnabled -eq $true }).MacAddress | Select-Object -First 1
         
         $combinedId = "$cpuId$biosId$diskId$macAddress"
         $hash = [System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($combinedId))
-        $hashedId = [System.BitConverter]::ToString($hash) -replace "-", ""
-        
-        return $hashedId.Substring(0, 32)
+        return [System.BitConverter]::ToString($hash) -replace "-", ""
     }
     catch {
-        $errorMsg = "Error generating machine fingerprint: $_"
-        Write-Host "[!] $errorMsg" -ForegroundColor Red
-        Send-WebhookMessage -message $errorMsg -status "error"
+        Send-WebhookMessage -message "Error generating machine fingerprint: $_" -status "error"
         exit
     }
 }
 
 function Generate-SecureOTP {
     param([int]$Length = 12)
-    
     try {
         $validChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
         $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
         $bytes = New-Object byte[]($Length)
         $rng.GetBytes($bytes)
         
-        $otp = -join ($bytes | ForEach-Object {
-            $validChars[$_ % $validChars.Length]
-        })
-        
-        return $otp
+        return -join ($bytes | ForEach-Object { $validChars[$_ % $validChars.Length] })
     }
     catch {
-        $errorMsg = "Error generating OTP: $_"
-        Write-Host "[!] $errorMsg" -ForegroundColor Red
-        Send-WebhookMessage -message $errorMsg -status "error"
+        Send-WebhookMessage -message "Error generating OTP: $_" -status "error"
         exit
     }
 }
@@ -149,38 +121,11 @@ function Verify-OTP {
     )
     
     try {
-        $maxRetries = 3
-        $retryCount = 0
-        $remoteData = $null
-        
-        do {
-            try {
-                $remoteData = Invoke-RestMethod -Uri $DatabaseURL -UseBasicParsing -ErrorAction Stop -ContentType "text/plain; charset=utf-8"
-                break
-            }
-            catch {
-                $retryCount++
-                if ($retryCount -ge $maxRetries) {
-                    throw "Failed to fetch OTP database after $maxRetries attempts: $_"
-                }
-                Start-Sleep -Seconds 5
-            }
-        } while ($true)
-
-        if ([string]::IsNullOrEmpty($remoteData)) {
-            $warningMsg = "Empty OTP database received"
-            Write-Host "[!] $warningMsg" -ForegroundColor Yellow
-            Send-WebhookMessage -message $warningMsg -status "warning"
-            return $false
-        }
-        
-        $pattern = "$MachineFingerprint`:$OTP`:\d{4}-\d{2}-\d{2}"
-        return ($remoteData -match $pattern)
+        $remoteData = Invoke-RestMethod -Uri $DatabaseURL -UseBasicParsing -ErrorAction Stop
+        return ($remoteData -match "$MachineFingerprint`:$OTP`:\d{4}-\d{2}-\d{2}")
     }
     catch {
-        $errorMsg = "Failed to verify OTP: $_"
-        Write-Host "[!] $errorMsg" -ForegroundColor Red
-        Send-WebhookMessage -message $errorMsg -status "error"
+        Send-WebhookMessage -message "Failed to verify OTP: $_" -status "error"
         return $false
     }
 }
@@ -199,15 +144,10 @@ function Initialize-OTPSystem {
         if (Test-Path $LocalStoragePath) {
             $localOTP = Get-Content $LocalStoragePath | Where-Object { $_ -match '^otp=' } | ForEach-Object { ($_ -split '=')[1] }
             
-            if ([string]::IsNullOrEmpty($localOTP)) {
-                throw "No OTP found in local storage"
-            }
-            
             if (-not (Verify-OTP -MachineFingerprint $machineFingerprint -OTP $localOTP -DatabaseURL $RemoteDatabaseURL)) {
                 $errorMsg = "Device not authorized. Fingerprint: $machineFingerprint | OTP: $localOTP"
-                Write-Host "`n[!] $errorMsg" -ForegroundColor Red
                 Send-WebhookMessage -message $errorMsg -status "error"
-                Write-Host "[!] Please contact support." -ForegroundColor Red
+                Write-Host "[!] $errorMsg`n[!] Please contact support." -ForegroundColor Red
                 Start-Sleep 15
                 exit
             }
@@ -217,51 +157,36 @@ function Initialize-OTPSystem {
         }
         else {
             $newOTP = Generate-SecureOTP -Length 12
-            $otpContent = @(
+            @(
                 "[OTP]",
                 "fingerprint=$machineFingerprint",
                 "otp=$newOTP",
                 "generated=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
-            )
+            ) | Out-File -FilePath $LocalStoragePath -Force -Encoding UTF8
             
-            $otpContent | Out-File -FilePath $LocalStoragePath -Force -Encoding UTF8
             $warningMsg = "FIRST-TIME SETUP REQUIRED. Fingerprint: $machineFingerprint | OTP: $newOTP"
-            Write-Host "`n[!] $warningMsg" -ForegroundColor Yellow
             Send-WebhookMessage -message $warningMsg -status "warning"
-            Write-Host "`n[!] Please register this device with the information above" -ForegroundColor Yellow
-            Write-Host "[!] Send this information to the developer" -ForegroundColor Yellow
-            Write-Host "`n[*] Exiting until device is authorized..." -ForegroundColor Gray
+            Write-Host "[!] $warningMsg`n[!] Please register this device with the information above`n[!] Send this information to the developer`n[*] Exiting until device is authorized..." -ForegroundColor Yellow
             Start-Sleep 10
             exit
         }
     }
     catch {
-        $errorMsg = "OTP System Error: $_"
-        Write-Host "[!] $errorMsg" -ForegroundColor Red
-        Send-WebhookMessage -message $errorMsg -status "error"
+        Send-WebhookMessage -message "OTP System Error: $_" -status "error"
         exit
     }
 }
 
-# ==================== MAIN SCRIPT ====================
+# Initialize OTP system
 Initialize-OTPSystem
 Clear-Host
-
-# Get SID with error handling
-try {
-    $sid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
-    Write-Host "`n[*] Your SID: $sid" -ForegroundColor Yellow
-}
-catch {
-    Write-Host "[!] Failed to get SID: $_" -ForegroundColor Red
-    exit
-}
 
 # ==================== DRAG ASSIST IMPLEMENTATION ====================
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Diagnostics;
 
 public class MouseControl {
     [DllImport("user32.dll")]
@@ -273,6 +198,12 @@ public class MouseControl {
     [DllImport("user32.dll")]
     public static extern void mouse_event(uint dwFlags, int dx, int dy, uint dwData, IntPtr dwExtraInfo);
     
+    [DllImport("kernel32.dll")]
+    public static extern bool SetConsoleTitle(string lpConsoleTitle);
+    
+    [DllImport("kernel32.dll")]
+    public static extern bool Beep(int freq, int duration);
+    
     [StructLayout(LayoutKind.Sequential)]
     public struct POINT {
         public int X;
@@ -281,8 +212,7 @@ public class MouseControl {
     
     public const int VK_LBUTTON = 0x01;
     public const uint MOUSEEVENTF_MOVE = 0x0001;
-}
-
+    
     public static bool Enabled = true;
     public static int Strength = 5;
     public static int Smoothness = 5;
@@ -314,49 +244,47 @@ public class MouseControl {
         long latencySum = 0;
         int frameCount = 0;
 
-        Console.CursorVisible = false;
-
         while (true) {
             long frameStart = frameTimer.ElapsedMilliseconds;
             
-            // Handle key presses for controls
+            // Key controls
             if ((GetAsyncKeyState(0x76) & 0x8000) != 0) {  // F7
                 Enabled = !Enabled;
                 PlayKeyBeep();
                 UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
-            if ((GetAsyncKeyState(0x2d) & 0x8000) != 0 && Strength < 10) {  // F4
+            if ((GetAsyncKeyState(0x2D) & 0x8000) != 0 && Strength < 10) {  // INSERT
                 Strength++;
                 PlayKeyBeep();
                 UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
-            if ((GetAsyncKeyState(0x2e) & 0x8000) != 0 && Strength > 1) {  // F3
+            if ((GetAsyncKeyState(0x2E) & 0x8000) != 0 && Strength > 1) {  // DELETE
                 Strength--;
                 PlayKeyBeep();
                 UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
-            if ((GetAsyncKeyState(0x24) & 0x8000) != 0 && Smoothness < 10) {  // F5
+            if ((GetAsyncKeyState(0x24) & 0x8000) != 0 && Smoothness < 10) {  // HOME
                 Smoothness++;
                 PlayKeyBeep();
                 UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
-            if ((GetAsyncKeyState(0x23) & 0x8000) != 0 && Smoothness > 1) {  // F2
+            if ((GetAsyncKeyState(0x23) & 0x8000) != 0 && Smoothness > 1) {  // END
                 Smoothness--;
                 PlayKeyBeep();
                 UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
-            if ((GetAsyncKeyState(0x21) & 0x8000) != 0 && AssistLevel < 10) {  // F6
+            if ((GetAsyncKeyState(0x21) & 0x8000) != 0 && AssistLevel < 10) {  // PAGE UP
                 AssistLevel++;
                 PlayKeyBeep();
                 UpdateConsoleTitle();
                 Thread.Sleep(200);
             }
-            if ((GetAsyncKeyState(0x22) & 0x8000) != 0 && AssistLevel > 1) {  // F1
+            if ((GetAsyncKeyState(0x22) & 0x8000) != 0 && AssistLevel > 1) {  // PAGE DOWN
                 AssistLevel--;
                 PlayKeyBeep();
                 UpdateConsoleTitle();
@@ -368,7 +296,7 @@ public class MouseControl {
                 continue;
             }
 
-            bool lmbDown = (GetAsyncKeyState(0x01) & 0x8000) != 0;
+            bool lmbDown = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
 
             if (lmbDown) {
                 if (!isHolding) {
@@ -391,7 +319,7 @@ public class MouseControl {
 
                         int steps = 1 + (int)(Smoothness * 0.5);
                         for (int i = 0; i < steps; i++) {
-                            mouse_event(0x0001, correctedX / steps, correctedY / steps, 0, 0);
+                            mouse_event(MOUSEEVENTF_MOVE, correctedX / steps, correctedY / steps, 0, IntPtr.Zero);
                             Thread.Sleep(1);
                         }
                     }
@@ -402,7 +330,7 @@ public class MouseControl {
                 isHolding = false;
             }
 
-            // Calculate FPS and latency
+            // Performance metrics
             long frameTime = frameTimer.ElapsedMilliseconds - frameStart;
             latencySum += frameTime;
             frameCount++;
@@ -423,23 +351,17 @@ public class MouseControl {
 "@
 
 # ==================== MAIN EXECUTION ====================
-# Initialize OTP system
-Initialize-OTPSystem
-Clear-Host
-
-# Add the C# type definition for drag assist
-Add-Type -TypeDefinition $csharpCode -ReferencedAssemblies "System.Drawing"
-
 # Start the drag assist in a separate thread
 $dragAssistThread = [PowerShell]::Create().AddScript({
-    [SageXDragAssist]::Run()
+    [MouseControl]::Run()
 })
 
 $handle = $dragAssistThread.BeginInvoke()
 
-# Cache the ASCII art
-$colors = @("Red", "Yellow", "Cyan", "Green", "Magenta", "Blue", "White")
-$asciiArt = @'
+# Display control panel
+function Show-ControlPanel {
+    $colors = @("Red", "Yellow", "Cyan", "Green", "Magenta", "Blue", "White")
+    $asciiArt = @'
   _________                     ____  ___ __________                         .___.__  __   
  /   _____/____     ____   ____ \   \/  / \______   \ ____   ____   ____   __| _/|__|/  |_ 
  \_____  \\__  \   / ___\_/ __ \ \     /   |       _// __ \ / ___\_/ __ \ / __ | |  \   __\
@@ -448,28 +370,8 @@ $asciiArt = @'
         \/     \//_____/      \/      \_/         \/     \/_____/      \/     \/             
 '@
 
-$cachedAsciiArt = $asciiArt -split "`n" | ForEach-Object {
-    $color = Get-Random -InputObject $colors
-    [PSCustomObject]@{Line=$_; Color=$color}
-}
-
-# Control panel display
-function Show-ControlPanel {
-    param(
-        [int]$Strength = 5,
-        [int]$Smoothness = 5,
-        [int]$AssistLevel = 5,
-        [int]$Frames = 0,
-        [double]$AverageLatency = 0,
-        [bool]$Enabled = $true
-    )
-    
-    $host.UI.RawUI.CursorPosition = @{X=0; Y=0}
-    Write-Host "$([char]27)[J"  # ANSI escape to clear from cursor down
-
-    # Draw cached ASCII art
-    $cachedAsciiArt | ForEach-Object {
-        Write-Host $_.Line -ForegroundColor $_.Color
+    $asciiArt -split "`n" | ForEach-Object {
+        Write-Host $_ -ForegroundColor (Get-Random -InputObject $colors)
     }
 
     Write-Host "`n" -NoNewline
@@ -480,131 +382,33 @@ function Show-ControlPanel {
     Write-Host "`n[+] SID: " -NoNewline -ForegroundColor Gray
     Write-Host $sid -ForegroundColor Yellow
 
-    $msgLines = @(
-    "[+] Your Mouse is Connected With SageX Regedit [AI]",
-    "[+] Sensitivity Tweaked For Maximum Precision",
-    "[+] Drag Assist Enabled - Easy Headshots",
-    "[+] Low Input Lag Mode ON",
-    "[+] Hold LMB for Auto Drag Support"
-    )
-    $msgLines | ForEach-Object {
-    Write-Host $_ -ForegroundColor Red
-    }
-
-    "@
-
-# User-configurable settings
-$settings = @{
-    ActivationDelay = 60       # Milliseconds before effect activates after holding LMB
-    VerticalCompensation = 4   # Pixels to compensate vertically (recoil control)
-    HorizontalFactor = 0.4     # Horizontal movement reduction factor (0-1)
-    PollingInterval = 10       # Milliseconds between adjustments
-    Verbose = $true            # Show debug output
-}
-
-# Initialize state
-$isHolding = $false
-$pressStart = [DateTime]::Now
-$prev = New-Object MouseControl+POINT
-[MouseControl]::GetCursorPos([ref]$prev) | Out-Null
-
-if ($settings.Verbose) {
-    Write-Host "Mouse control started with settings:"
-    $settings.GetEnumerator() | ForEach-Object { Write-Host ("  {0}: {1}" -f $_.Key, $_.Value) }
-    Write-Host "Press Ctrl+C to stop"
-}
-
-try {
-    while ($true) {
-        $lmbDown = [MouseControl]::GetAsyncKeyState([MouseControl]::VK_LBUTTON) -band 0x8000
-        
-        if ($lmbDown) {
-            if (!$isHolding) {
-                $isHolding = $true
-                $pressStart = [DateTime]::Now
-                if ($settings.Verbose) { Write-Host "LMB pressed - tracking started" }
-            } 
-            elseif (([DateTime]::Now - $pressStart).TotalMilliseconds -ge $settings.ActivationDelay) {
-                $curr = New-Object MouseControl+POINT
-                [MouseControl]::GetCursorPos([ref]$curr) | Out-Null
-                
-                $deltaY = $curr.Y - $prev.Y
-                $deltaX = $curr.X - $prev.X
-                
-                if ($deltaY -lt -1) {
-                    $correctedX = [int]($deltaX * $settings.HorizontalFactor)
-                    [MouseControl]::mouse_event(
-                        [MouseControl]::MOUSEEVENTF_MOVE,
-                        -$correctedX,
-                        -$settings.VerticalCompensation,
-                        0,
-                        [IntPtr]::Zero
-                    )
-                    if ($settings.Verbose) {
-                        Write-Host ("Adjusting: X={0}, Y={1}" -f -$correctedX, -$settings.VerticalCompensation)
-                    }
-                    Start-Sleep -Milliseconds $settings.PollingInterval
-                }
-                
-                $prev = $curr
-            }
-        } 
-        else {
-            if ($isHolding -and $settings.Verbose) {
-                Write-Host "LMB released"
-            }
-            $isHolding = $false
-        }
-        
-        Start-Sleep -Milliseconds 1
-    }
-}
-finally {
-    if ($settings.Verbose) {
-        Write-Host "Script stopped"
-    }
-}
-
+    $status = [MouseControl]::Enabled ? "ACTIVE" : "INACTIVE"
+    $statusColor = [MouseControl]::Enabled ? "Green" : "Red"
+    
     Write-Host "`n STATUS:   " -NoNewline
-    if ($Enabled) { 
-        Write-Host "ACTIVE  " -NoNewline -ForegroundColor White
-    } else { 
-        Write-Host "INACTIVE" -NoNewline -ForegroundColor White
-    }
+    Write-Host $status.PadRight(8) -NoNewline -ForegroundColor $statusColor
     Write-Host "`t`t F7: Toggle ON/OFF"
     
     Write-Host "`n STRENGTH:  " -NoNewline
     1..10 | ForEach-Object {
-        if ($_ -le $Strength) {
-            Write-Host "■" -NoNewline -ForegroundColor Cyan 
-        } else {
-            Write-Host "■" -NoNewline -ForegroundColor DarkGray 
-        }
+        Write-Host "■" -NoNewline -ForegroundColor ($_ -le [MouseControl]::Strength ? "Cyan" : "DarkGray")
     }
     Write-Host "`t INSERT: Increase | DELETE: Decrease"
     
     Write-Host " SMOOTHNESS: " -NoNewline
     1..10 | ForEach-Object {
-        if ($_ -le $Smoothness) {
-            Write-Host "■" -NoNewline -ForegroundColor Cyan 
-        } else {
-            Write-Host "■" -NoNewline -ForegroundColor DarkGray
-        }
+        Write-Host "■" -NoNewline -ForegroundColor ($_ -le [MouseControl]::Smoothness ? "Cyan" : "DarkGray")
     }
     Write-Host "`t HOME: Increase | END: Decrease"
     
     Write-Host " ASSIST LEVEL:" -NoNewline
     1..10 | ForEach-Object {
-        if ($_ -le $AssistLevel) {
-            Write-Host "■" -NoNewline -ForegroundColor Cyan 
-        } else {
-            Write-Host "■" -NoNewline -ForegroundColor DarkGray
-        }
+        Write-Host "■" -NoNewline -ForegroundColor ($_ -le [MouseControl]::AssistLevel ? "Cyan" : "DarkGray")
     }
     Write-Host "`t PAGE UP: Increase | PAGE DOWN: Decrease"
     
     Write-Host "`n PERFORMANCE:" -ForegroundColor White
-    Write-Host (" FPS: " + $Frames.ToString().PadRight(5) + " LATENCY: " + $AverageLatency.ToString("0.00") + "ms") -BackgroundColor Black -ForegroundColor Gray
+    Write-Host (" FPS: " + [MouseControl]::Frames.ToString().PadRight(5) + " LATENCY: " + [MouseControl]::AverageLatency.ToString("0.00") + "ms") -BackgroundColor Black -ForegroundColor Gray
     
     Write-Host "`n CONTROLS:" -ForegroundColor White
     Write-Host " - Hold LEFT MOUSE BUTTON to activate drag assist" -ForegroundColor Gray
@@ -612,38 +416,25 @@ finally {
     Write-Host " - Close this window to exit" -ForegroundColor Gray
 }
 
-# Update the UI with reduced refresh rate
-while ($true) {
-    try {
-        $status = @{
-            Enabled = [SageXDragAssist]::Enabled
-            Strength = [SageXDragAssist]::Strength
-            Smoothness = [SageXDragAssist]::Smoothness
-            AssistLevel = [SageXDragAssist]::AssistLevel
-            Frames = [SageXDragAssist]::Frames
-            AverageLatency = [SageXDragAssist]::AverageLatency
-        }
+# Update the UI
+try {
+    while ($true) {
+        Show-ControlPanel
+        Start-Sleep -Milliseconds 200
         
-        Show-ControlPanel @status
-        Start-Sleep -Milliseconds 200  # Reduced from 1000ms to 200ms (5 FPS)
-
         if ($dragAssistThread.InvocationStateInfo.State -ne "Running") {
             Write-Host "[!] Drag assist thread has stopped unexpectedly!" -ForegroundColor Red
             break
         }
     }
-    catch {
-        Write-Host "[!] UI Update Error: $_" -ForegroundColor Red
-        Start-Sleep -Seconds 1
+}
+finally {
+    try {
+        $dragAssistThread.Stop()
+        $dragAssistThread.Dispose()
+        [Console]::Title = "PowerShell"
     }
-}
-
-# Clean up when exiting
-try {
-    $dragAssistThread.Stop()
-    $dragAssistThread.Dispose()
-    [Console]::CursorVisible = $true
-}
-catch {
-    # Ignore cleanup errors
+    catch {
+        Write-Host "[!] Error during cleanup: $_" -ForegroundColor Red
+    }
 }
