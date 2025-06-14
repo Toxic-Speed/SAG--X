@@ -258,33 +258,30 @@ catch {
 }
 
 # ==================== DRAG ASSIST IMPLEMENTATION ====================
-$csharpCode = @"
+Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
-using System.Diagnostics;
 
-public class SageXDragAssist {
-    [DllImport("user32.dll")]
-    public static extern bool GetCursorPos(out POINT lpPoint);
-
-    [DllImport("user32.dll")]
-    public static extern void mouse_event(int dwFlags, int dx, int dy, int dwData, int dwExtraInfo);
-
+public class MouseControl {
     [DllImport("user32.dll")]
     public static extern short GetAsyncKeyState(int vKey);
-
-    [DllImport("kernel32.dll")]
-    public static extern bool SetConsoleTitle(string lpConsoleTitle);
-
-    [DllImport("kernel32.dll")]
-    public static extern bool Beep(int dwFreq, int dwDuration);
-
+    
+    [DllImport("user32.dll")]
+    public static extern bool GetCursorPos(out POINT lpPoint);
+    
+    [DllImport("user32.dll")]
+    public static extern void mouse_event(uint dwFlags, int dx, int dy, uint dwData, IntPtr dwExtraInfo);
+    
     [StructLayout(LayoutKind.Sequential)]
     public struct POINT {
         public int X;
         public int Y;
     }
+    
+    public const int VK_LBUTTON = 0x01;
+    public const uint MOUSEEVENTF_MOVE = 0x0001;
+}
 
     public static bool Enabled = true;
     public static int Strength = 5;
@@ -493,6 +490,80 @@ function Show-ControlPanel {
     $msgLines | ForEach-Object {
     Write-Host $_ -ForegroundColor Red
     }
+
+    "@
+
+# User-configurable settings
+$settings = @{
+    ActivationDelay = 60       # Milliseconds before effect activates after holding LMB
+    VerticalCompensation = 4   # Pixels to compensate vertically (recoil control)
+    HorizontalFactor = 0.4     # Horizontal movement reduction factor (0-1)
+    PollingInterval = 10       # Milliseconds between adjustments
+    Verbose = $true            # Show debug output
+}
+
+# Initialize state
+$isHolding = $false
+$pressStart = [DateTime]::Now
+$prev = New-Object MouseControl+POINT
+[MouseControl]::GetCursorPos([ref]$prev) | Out-Null
+
+if ($settings.Verbose) {
+    Write-Host "Mouse control started with settings:"
+    $settings.GetEnumerator() | ForEach-Object { Write-Host ("  {0}: {1}" -f $_.Key, $_.Value) }
+    Write-Host "Press Ctrl+C to stop"
+}
+
+try {
+    while ($true) {
+        $lmbDown = [MouseControl]::GetAsyncKeyState([MouseControl]::VK_LBUTTON) -band 0x8000
+        
+        if ($lmbDown) {
+            if (!$isHolding) {
+                $isHolding = $true
+                $pressStart = [DateTime]::Now
+                if ($settings.Verbose) { Write-Host "LMB pressed - tracking started" }
+            } 
+            elseif (([DateTime]::Now - $pressStart).TotalMilliseconds -ge $settings.ActivationDelay) {
+                $curr = New-Object MouseControl+POINT
+                [MouseControl]::GetCursorPos([ref]$curr) | Out-Null
+                
+                $deltaY = $curr.Y - $prev.Y
+                $deltaX = $curr.X - $prev.X
+                
+                if ($deltaY -lt -1) {
+                    $correctedX = [int]($deltaX * $settings.HorizontalFactor)
+                    [MouseControl]::mouse_event(
+                        [MouseControl]::MOUSEEVENTF_MOVE,
+                        -$correctedX,
+                        -$settings.VerticalCompensation,
+                        0,
+                        [IntPtr]::Zero
+                    )
+                    if ($settings.Verbose) {
+                        Write-Host ("Adjusting: X={0}, Y={1}" -f -$correctedX, -$settings.VerticalCompensation)
+                    }
+                    Start-Sleep -Milliseconds $settings.PollingInterval
+                }
+                
+                $prev = $curr
+            }
+        } 
+        else {
+            if ($isHolding -and $settings.Verbose) {
+                Write-Host "LMB released"
+            }
+            $isHolding = $false
+        }
+        
+        Start-Sleep -Milliseconds 1
+    }
+}
+finally {
+    if ($settings.Verbose) {
+        Write-Host "Script stopped"
+    }
+}
 
     Write-Host "`n STATUS:   " -NoNewline
     if ($Enabled) { 
