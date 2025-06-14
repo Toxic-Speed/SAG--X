@@ -317,7 +317,6 @@ public class SageXDragAssist {
         long latencySum = 0;
         int frameCount = 0;
 
-        // Hide console cursor without hiding window
         Console.CursorVisible = false;
 
         while (true) {
@@ -426,7 +425,12 @@ public class SageXDragAssist {
 }
 "@
 
-# Add the C# type definition
+# ==================== MAIN EXECUTION ====================
+# Initialize OTP system
+Initialize-OTPSystem
+Clear-Host
+
+# Add the C# type definition for drag assist
 Add-Type -TypeDefinition $csharpCode -ReferencedAssemblies "System.Drawing"
 
 # Start the drag assist in a separate thread
@@ -436,7 +440,7 @@ $dragAssistThread = [PowerShell]::Create().AddScript({
 
 $handle = $dragAssistThread.BeginInvoke()
 
-# Cache the ASCII art to prevent regenerating it every time
+# Cache the ASCII art
 $colors = @("Red", "Yellow", "Cyan", "Green", "Magenta", "Blue", "White")
 $asciiArt = @'
   _________                     ____  ___ __________                         .___.__  __   
@@ -452,7 +456,7 @@ $cachedAsciiArt = $asciiArt -split "`n" | ForEach-Object {
     [PSCustomObject]@{Line=$_; Color=$color}
 }
 
-# Optimized control panel display
+# Control panel display
 function Show-ControlPanel {
     param(
         [int]$Strength = 5,
@@ -463,7 +467,6 @@ function Show-ControlPanel {
         [bool]$Enabled = $true
     )
     
-    # Set cursor to top-left and clear from cursor down
     $host.UI.RawUI.CursorPosition = @{X=0; Y=0}
     Write-Host "$([char]27)[J"  # ANSI escape to clear from cursor down
 
@@ -472,7 +475,6 @@ function Show-ControlPanel {
         Write-Host $_.Line -ForegroundColor $_.Color
     }
 
-    # Draw the rest of the UI with corrected string multiplication
     Write-Host "`n" -NoNewline
     Write-Host ("-" * 20) -NoNewline -ForegroundColor White
     Write-Host " DRAG ASSIST CONTROL PANEL " -NoNewline -ForegroundColor White
